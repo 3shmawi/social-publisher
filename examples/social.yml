@@ -4,6 +4,7 @@
 #
 # What runs when:
 #   · a GitHub Release is published  → posts about that release
+#   · a v* tag is pushed             → posts about the tag's commits
 #   · weekly schedule                → posts about changes since the last post,
 #                                      on even ISO weeks only (every two weeks)
 #   · Actions → Social posts → Run   → you choose; dry run by default
@@ -15,6 +16,8 @@ name: Social posts
 on:
   release:
     types: [published]
+  push:
+    tags: ['v*']           # version tags without a GitHub Release (e.g. Codemagic)
   schedule:
     - cron: '23 8 * * 2'   # Tuesdays 08:23 UTC; odd ISO weeks are skipped
   workflow_dispatch:

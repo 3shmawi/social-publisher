@@ -130,6 +130,8 @@ beforeAll(async () => {
   git("init", "-q");
   git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "feat: dark mode");
   git("tag", "v1.2.0");
+  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "feat: table booking");
+  git("tag", "v1.3.0"); // a tag without a GitHub Release (Codemagic only pushes tags)
   out = mkdtempSync(path.join(tmpdir(), "out-"));
 }, 30000);
 
@@ -208,6 +210,13 @@ describe("pipeline", () => {
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).toContain("Already posted");
     createdRefs.length = 0;
+  }, 60000);
+
+  it("posts about a pushed tag that has no GitHub Release", async () => {
+    const r = await run("collect", { ...env(), EVENT_NAME: "push", GITHUB_REF: "refs/tags/v1.3.0", GITHUB_REF_NAME: "v1.3.0" });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    const ctx = JSON.parse(readFileSync(path.join(out, "context.json"), "utf8"));
+    expect(ctx).toMatchObject({ mode: "release", key: "v1.3.0", skip: "", commits: ["feat: table booking"] });
   }, 60000);
 
   it("skips when Claude finds nothing user-facing", async () => {

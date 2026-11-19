@@ -4,7 +4,7 @@ Announces each app update on **LinkedIn**, a **Facebook Page** and **YouTube**,
 from GitHub Actions. Claude writes a version for each platform (in English,
 Arabic or both), you review and approve it in the Actions UI, then it posts.
 
-- Runs when you publish a GitHub Release, every two weeks on a schedule, or by hand.
+- Runs when you publish a GitHub Release or push a version tag, every two weeks on a schedule, or by hand.
 - **Dry run by default**: generates the posts and shows them, publishes nothing.
 - **Approval gate**: live runs wait for you in the `social` environment.
 - **Never posts twice**: each platform tags `social/posted/<release>/<platform>` after posting.
@@ -260,6 +260,10 @@ asking). To opt out on purpose, pass `require_approval: false`.
 - **Release** (the `release` event, or a manual run): the release title and
   notes, plus the commits since the previous `v*` tag. Drafts are ignored;
   pre-releases too unless `include_prereleases`.
+- **Pushed `v*` tag, or a tag without a GitHub Release** (e.g. Codemagic only
+  pushes tags): the commits since the previous `v*` tag. Tags pushed with
+  the workflow's own `GITHUB_TOKEN` start no workflows; tags pushed with a
+  personal token or by hand do.
 - **Schedule / `release_tag: changes`**: commits and merged PRs since the
   `social/last-post` tag (or since the latest `v*` tag, or the last 14 days).
   The schedule runs weekly and skips odd ISO weeks, since cron can't express

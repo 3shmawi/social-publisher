@@ -34,7 +34,10 @@ function previousVersionTag(tag: string): string {
 
 async function main(): Promise<void> {
   const eventName = env("EVENT_NAME", env("GITHUB_EVENT_NAME", "workflow_dispatch"));
-  const requestedTag = env("RELEASE_TAG");
+  // A pushed version tag (e.g. Codemagic tags releases without making a
+  // GitHub Release) counts as a request for that tag.
+  const pushedTag = eventName === "push" && env("GITHUB_REF").startsWith("refs/tags/") ? env("GITHUB_REF_NAME") : "";
+  const requestedTag = pushedTag || env("RELEASE_TAG");
   const force = envBool("FORCE");
   const platforms = envList("PLATFORMS", "facebook,linkedin,youtube");
   const languages = envList("LANGUAGES", "en");
@@ -96,8 +99,28 @@ async function main(): Promise<void> {
     if (!release) throw new Error("The release event has no release in its payload.");
   } else if (eventName !== "schedule" && requestedTag !== "changes") {
     release = requestedTag ? await getRelease(requestedTag) : await getLatestRelease();
-    if (requestedTag && !release) throw new Error(`No GitHub release with the tag "${requestedTag}".`);
+    if (requestedTag && !release) {
+      // A tag without a GitHub Release: post about its commits.
+      if (!tryGit("rev-parse", "-q", "--verify", `refs/tags/${requestedTag}`)) {
+        throw new Error(`No GitHub release or tag named "${requestedTag}".`);
+      }
+      return finishTag(requestedTag);
+    }
     if (!release) notice("This repo has no releases yet; posting about the changes since the last post instead.");
+  }
+
+  async function finishTag(tag: string) {
+    ctx.mode = "release";
+    ctx.tag = tag;
+    ctx.key = tag;
+    ctx.title = tag;
+    ctx.sha = tryGit("rev-list", "-n", "1", tag);
+    const previous = previousVersionTag(tag);
+    ctx.commits = commitSubjects(previous ? `${previous}..${tag}` : tag).slice(0, 200);
+    if (ctx.commits.length === 0) return finish(`Tag ${tag} has no commits since the previous version.`);
+    if (onlyInternalChanges(ctx.commits)) return finish(`Tag ${tag} has only internal commits (chore, ci, refactor, ...).`);
+    if (hasSkipMarker(ctx.commits.join("\n"))) return finish(`A commit in ${tag} contains [skip social].`);
+    return finish();
   }
 
   if (release) {
