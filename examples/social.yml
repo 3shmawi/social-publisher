@@ -1,0 +1,73 @@
+# Copy to .github/workflows/social.yml in an app repo and change the `with:`
+# values. README.md → "Add it to an app repo" lists the secrets and the
+# `social` environment this needs.
+#
+# What runs when:
+#   · a GitHub Release is published  → posts about that release
+#   · weekly schedule                → posts about changes since the last post,
+#                                      on even ISO weeks only (every two weeks)
+#   · Actions → Social posts → Run   → you choose; dry run by default
+# Automatic runs (release, schedule) stay dry runs until you set the repo
+# variable SOCIAL_LIVE=true. Live runs wait for your approval in the
+# `social` environment before anything is posted.
+name: Social posts
+
+on:
+  release:
+    types: [published]
+  schedule:
+    - cron: '23 8 * * 2'   # Tuesdays 08:23 UTC; odd ISO weeks are skipped
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Only generate and show the posts
+        type: boolean
+        default: true
+      release_tag:
+        description: 'Release tag (empty = latest release, "changes" = commits since the last post)'
+        type: string
+        default: ''
+      force:
+        description: Post again even if this update was already posted
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: social-posts
+  cancel-in-progress: false
+
+jobs:
+  social:
+    permissions:
+      contents: write   # tags social/posted/* and social/last-post ("don't post twice")
+      actions: read     # checks that the `social` environment requires your approval
+    # Pinned to a commit like every other action. Dependabot updates it.
+    uses: 3shmawi/social-publisher/.github/workflows/publish.yml@COMMIT_SHA # main
+    with:
+      app_name: Cafe Menu
+      about: A menu and ordering app for small cafes.
+      play_store_url: https://play.google.com/store/apps/details?id=com.example.cafe
+      app_store_url: ${{ vars.APP_STORE_URL }}
+      website_url: https://cafe.example.com
+      languages: en,ar
+      linkedin_as: both            # person, organization or both
+      platforms: facebook,linkedin,youtube
+      youtube_privacy: private     # stays private until the YouTube audit passes anyway
+      release_tag: ${{ inputs.release_tag || '' }}
+      force: ${{ inputs.force || false }}
+      dry_run: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || (github.event_name != 'workflow_dispatch' && vars.SOCIAL_LIVE != 'true') }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+      FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+      LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
+      LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+      LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
+      LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+      LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+      LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}

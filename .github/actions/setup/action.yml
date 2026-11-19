@@ -1,0 +1,16 @@
+# Node + this repo's dependencies, for the jobs of publish.yml. Used after
+# publish.yml has checked this repo out into ./publisher.
+name: Set up social-publisher
+description: Installs Node and the publisher's npm dependencies.
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+      with:
+        node-version: 24
+        # No npm cache: this runs on release events, where a poisoned cache
+        # would run with posting tokens. npm ci takes a few seconds anyway.
+        package-manager-cache: false
+    - shell: bash
+      working-directory: publisher
+      run: npm ci --no-audit --no-fund
