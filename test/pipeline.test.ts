@@ -219,6 +219,12 @@ describe("pipeline", () => {
     expect(ctx).toMatchObject({ mode: "release", key: "v1.3.0", skip: "", commits: ["feat: table booking"] });
   }, 60000);
 
+  it("leaves a pushed tag that has a GitHub Release to the release event", async () => {
+    const r = await run("collect", { ...env(), EVENT_NAME: "push", GITHUB_REF: "refs/tags/v1.2.0", GITHUB_REF_NAME: "v1.2.0" });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).toContain("the release event posts it");
+  }, 60000);
+
   it("skips when Claude finds nothing user-facing", async () => {
     modelAnswer = { user_facing: false, skip_reason: "Only dependency updates.", headline: "", posts: [] };
     await run("collect", env());

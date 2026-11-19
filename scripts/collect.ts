@@ -99,6 +99,10 @@ async function main(): Promise<void> {
     if (!release) throw new Error("The release event has no release in its payload.");
   } else if (eventName !== "schedule" && requestedTag !== "changes") {
     release = requestedTag ? await getRelease(requestedTag) : await getLatestRelease();
+    if (pushedTag && release) {
+      // Publishing a release in the UI also pushes its tag: post once, from the release event.
+      return finish(`Tag ${pushedTag} has a GitHub Release; the release event posts it.`);
+    }
     if (requestedTag && !release) {
       // A tag without a GitHub Release: post about its commits.
       if (!tryGit("rev-parse", "-q", "--verify", `refs/tags/${requestedTag}`)) {
