@@ -20,10 +20,12 @@ export function waitForRedirect(port: number, path: string): Promise<{ query: UR
         res.writeHead(404).end();
         return;
       }
+      // Read the port before close(): afterwards address() is null.
+      const { port: boundPort } = server.address() as { port: number };
       res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
       res.end("<h2>Done. You can close this tab and go back to the terminal.</h2>");
       server.close();
-      resolve({ query: url.searchParams, port: (server.address() as { port: number }).port });
+      resolve({ query: url.searchParams, port: boundPort });
     });
     server.on("error", reject);
     server.listen(port, "127.0.0.1");
