@@ -276,6 +276,8 @@ echo '${JSON.stringify({ type: "result", is_error: false, result: "", structured
     const log = readFileSync(seen, "utf8");
     expect(log).toContain("@anthropic-ai/claude-code@");
     expect(log).toContain("--json-schema");
+    // Claude Code rejects a schema that names the draft 2020-12 meta-schema.
+    expect(log).not.toContain("json-schema.org");
     expect(log).toContain("--model claude-sonnet-5-5");
     expect(log).toContain("key: none");
     expect(log).toContain("token: oat-test");
