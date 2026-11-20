@@ -1,7 +1,7 @@
 // End to end against local fakes of the GitHub and Anthropic APIs: a release
 // goes through collect → generate → media → post (dry run) → summary.
 import { execFileSync, spawn } from "node:child_process";
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -49,13 +49,11 @@ const goodAnswer = {
 // Async on purpose: a sync spawn would block the fake servers in this process.
 function run(
   script: string,
-  env: Record<string, string>,
+  env: Record<string, string | undefined>,
   args: string[] = [],
 ): Promise<{ status: number | null; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
-    const child = spawn("npx", ["tsx", `scripts/${script}.ts`, ...args], {
-      cwd: root,
-      env: {
+    const merged: Record<string, string | undefined> = {
         PATH: process.env.PATH,
         HOME: process.env.HOME,
         GITHUB_API_URL: base,
@@ -64,8 +62,9 @@ function run(
         ANTHROPIC_BASE_URL: `${base}/anthropic`,
         ANTHROPIC_API_KEY: "test-key",
         ...env,
-      },
-    });
+    };
+    const childEnv = Object.fromEntries(Object.entries(merged).filter(([, v]) => v !== undefined)) as Record<string, string>;
+    const child = spawn("npx", ["tsx", `scripts/${script}.ts`, ...args], { cwd: root, env: childEnv });
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => (stdout += d));
@@ -130,7 +129,12 @@ beforeAll(async () => {
   git("init", "-q");
   git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "feat: dark mode");
   git("tag", "v1.2.0");
-  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "--allow-empty", "-m", "feat: table booking");
+  mkdirSync(path.join(appDir, "store/android/en-US/changelogs"), { recursive: true });
+  mkdirSync(path.join(appDir, "store/android/ar/changelogs"), { recursive: true });
+  writeFileSync(path.join(appDir, "store/android/en-US/changelogs/default.txt"), "• Book a table\n• Faster menu\n");
+  writeFileSync(path.join(appDir, "store/android/ar/changelogs/default.txt"), "• احجز ترابيزة\n• منيو أسرع\n");
+  git("add", ".");
+  git("-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "feat: table booking");
   git("tag", "v1.3.0"); // a tag without a GitHub Release (Codemagic only pushes tags)
   out = mkdtempSync(path.join(tmpdir(), "out-"));
 }, 30000);
@@ -232,5 +236,52 @@ describe("pipeline", () => {
     expect(r.status, r.stdout + r.stderr).toBe(0);
     expect(r.stdout).toContain("skip=true");
     expect(r.stdout).toContain("Only dependency updates.");
+  }, 60000);
+
+  it("writes template posts without AI, Arabic from the store's What's new", async () => {
+    await run("collect", { ...env(), RELEASE_TAG: "v1.3.0" });
+    const before = anthropicRequests.length;
+    const r = await run("generate", { ...env(), ANTHROPIC_API_KEY: undefined, HASHTAGS: "Flutter,MobileApps" });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).toContain("Writer: template");
+    expect(anthropicRequests.length).toBe(before);
+    const posts = JSON.parse(readFileSync(path.join(out, "posts.json"), "utf8"));
+    expect(posts.model).toBe("templates (no AI)");
+    expect(posts.linkedin).toContain("Cafe Menu 1.3.0 is out!");
+    expect(posts.linkedin).toContain("• Book a table");
+    expect(posts.linkedin).toContain("#Flutter #MobileApps");
+    expect(posts.facebook).toContain("✨ احجز ترابيزة");
+    expect(posts.youtube.title).toBe("Cafe Menu 1.3.0: what's new");
+    expect(posts.youtube.localizations.ar.title).toBe("Cafe Menu 1.3.0: الجديد");
+  }, 60000);
+
+  it("writes with Claude Code on the subscription token, without the API key", async () => {
+    const bin = mkdtempSync(path.join(tmpdir(), "bin-"));
+    const seen = path.join(bin, "seen.txt");
+    // A stand-in for `npx @anthropic-ai/claude-code -p …`.
+    writeFileSync(
+      path.join(bin, "npx"),
+      `#!/usr/bin/env bash
+if [ "$1" != "--yes" ]; then exec ${JSON.stringify(execFileSync("bash", ["-lc", "command -v npx"], { encoding: "utf8" }).trim())} "$@"; fi
+prompt=$(cat)
+{ echo "args: $*"; echo "key: \${ANTHROPIC_API_KEY:-none}"; echo "token: \${CLAUDE_CODE_OAUTH_TOKEN}"; echo "prompt: \${prompt:0:20}"; } > ${JSON.stringify(seen)}
+echo '${JSON.stringify({ type: "result", is_error: false, result: "", structured_output: goodAnswer }).replace(/'/g, "'\\''")}'
+`,
+    );
+    chmodSync(path.join(bin, "npx"), 0o755);
+    await run("collect", env());
+    const r = await run("generate", { ...env(), PATH: `${bin}:${process.env.PATH}`, CLAUDE_CODE_OAUTH_TOKEN: "oat-test" });
+    expect(r.status, r.stdout + r.stderr).toBe(0);
+    expect(r.stdout).toContain("Writer: claude-code");
+    const log = readFileSync(seen, "utf8");
+    expect(log).toContain("@anthropic-ai/claude-code@");
+    expect(log).toContain("--json-schema");
+    expect(log).toContain("--model claude-sonnet-5-5");
+    expect(log).toContain("key: none");
+    expect(log).toContain("token: oat-test");
+    expect(log).toContain("prompt: <update>");
+    const posts = JSON.parse(readFileSync(path.join(out, "posts.json"), "utf8"));
+    expect(posts.model).toBe("claude-sonnet-5-5 via Claude Code (subscription)");
+    expect(posts.linkedin).toContain("#Flutter #DarkMode #MobileApps");
   }, 60000);
 });

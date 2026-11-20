@@ -3,6 +3,7 @@
 // summary, and the output `skip` (true when there's nothing user-facing).
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
 import { z } from "zod";
 import {
@@ -14,6 +15,7 @@ import {
   type Posts,
   postsMarkdown,
 } from "./lib/content.ts";
+import { templatePosts } from "./lib/template.ts";
 import { env, envBool, notice, outPath, readJson, run, setOutput, summary, warning, writeJson } from "./lib/env.ts";
 
 const LANGUAGE_NAMES: Record<string, string> = { en: "English", ar: "Arabic" };
@@ -66,10 +68,10 @@ function updateText(ctx: Context): string {
   return parts.filter(Boolean).join("\n\n");
 }
 
-async function ask(client: Anthropic, model: string, ctx: Context, feedback: string): Promise<Output> {
+function userPrompt(ctx: Context, feedback: string): string {
   const languages = ctx.languages.map((l) => `${l} (${LANGUAGE_NAMES[l] ?? l})`).join(", ");
   const voice = env("VOICE");
-  const content = [
+  return [
     `<update>\n${updateText(ctx)}\n</update>`,
     `Languages, in this order: ${languages}.`,
     voice ? `Voice and style notes from the developer: ${voice}` : "",
@@ -77,6 +79,10 @@ async function ask(client: Anthropic, model: string, ctx: Context, feedback: str
   ]
     .filter(Boolean)
     .join("\n\n");
+}
+
+async function ask(client: Anthropic, model: string, ctx: Context, feedback: string): Promise<Output> {
+  const content = userPrompt(ctx, feedback);
 
   const response = await client.beta.messages.parse({
     model,
@@ -98,6 +104,87 @@ async function ask(client: Anthropic, model: string, ctx: Context, feedback: str
   return response.parsed_output;
 }
 
+/** Claude Code CLI version used with a subscription token (pinned, like every tool here). */
+const CLAUDE_CODE_VERSION = "2.1.317";
+
+/**
+ * Same request through Claude Code, signed in with your Claude subscription
+ * (CLAUDE_CODE_OAUTH_TOKEN from `claude setup-token`) instead of an API key.
+ * No tools, one structured answer.
+ */
+async function askClaudeCode(model: string, ctx: Context, feedback: string): Promise<Output> {
+  const env = { ...process.env };
+  // An API key outranks the subscription token in print mode; keep it out.
+  delete env.ANTHROPIC_API_KEY;
+  const args = [
+    "--yes",
+    `@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}`,
+    "-p",
+    "--output-format",
+    "json",
+    "--json-schema",
+    JSON.stringify(z.toJSONSchema(Output)),
+    "--model",
+    model,
+    "--system-prompt",
+    SYSTEM,
+    "--permission-mode",
+    "dontAsk",
+    "--no-session-persistence",
+    "--tools",
+    "",
+  ];
+  const { code, stdout, stderr } = await new Promise<{ code: number | null; stdout: string; stderr: string }>(
+    (resolve, reject) => {
+      const child = spawn("npx", args, { env, stdio: ["pipe", "pipe", "pipe"] });
+      let out = "";
+      let err = "";
+      child.stdout.on("data", (d) => (out += d));
+      child.stderr.on("data", (d) => (err += d));
+      child.on("error", reject);
+      // A bad token can make the CLI wait instead of failing: stop it.
+      const timer = setTimeout(() => {
+        child.kill("SIGKILL");
+        reject(
+          new Error(
+            "Claude Code didn't answer within 5 minutes. Check that CLAUDE_CODE_OAUTH_TOKEN is a current token from `claude setup-token`.",
+          ),
+        );
+      }, 5 * 60_000);
+      child.on("close", (c) => {
+        clearTimeout(timer);
+        resolve({ code: c, stdout: out, stderr: err });
+      });
+      // The prompt goes on stdin, so long release notes never hit argument limits.
+      child.stdin.end(userPrompt(ctx, feedback));
+    },
+  );
+  let result: { structured_output?: unknown; result?: string; is_error?: boolean; total_cost_usd?: number };
+  try {
+    result = JSON.parse(stdout);
+  } catch {
+    throw new Error(
+      `Claude Code failed (exit ${code}): ${(stderr || stdout).trim().slice(-500)}. If this is a sign-in problem, make a new token with \`claude setup-token\` and update the CLAUDE_CODE_OAUTH_TOKEN secret.`,
+    );
+  }
+  if (code !== 0 || result.is_error) {
+    const text = String(result.result ?? stderr).slice(0, 500);
+    if (/401|invalid.*(token|bearer)|authentication|log ?in/i.test(text)) {
+      throw new Error(
+        `Claude Code couldn't sign in: ${text}. Make a new token with \`claude setup-token\` (lasts a year) and update the CLAUDE_CODE_OAUTH_TOKEN secret.`,
+      );
+    }
+    if (/limit|quota|usage/i.test(text)) {
+      throw new Error(`Your Claude plan's usage limit is reached: ${text}. Re-run this job later.`);
+    }
+    throw new Error(`Claude Code failed: ${text}`);
+  }
+  const parsed = Output.safeParse(result.structured_output);
+  if (!parsed.success) throw new Error("Claude's answer didn't match the expected format.");
+  console.log(`Claude Code (${model}) answered.`);
+  return parsed.data;
+}
+
 /** Problems worth one retry: missing languages or LinkedIn far off its length. */
 function problems(out: Output, ctx: Context): string[] {
   const found: string[] = [];
@@ -115,20 +202,66 @@ function problems(out: Output, ctx: Context): string[] {
   return found;
 }
 
+type Writer = "template" | "claude-code" | "api";
+
+/** auto: your Claude subscription if its token is set, else the API key, else templates. */
+function pickWriter(): Writer {
+  const wanted = env("WRITER", "auto").toLowerCase();
+  if (wanted === "template" || wanted === "claude-code" || wanted === "api") return wanted;
+  if (env("CLAUDE_CODE_OAUTH_TOKEN")) return "claude-code";
+  if (env("ANTHROPIC_API_KEY")) return "api";
+  return "template";
+}
+
+function fromTemplate(ctx: Context): Output {
+  // Not envList: that lowercases, and hashtags keep their case (#MobileApps).
+  const hashtags = env("HASHTAGS")
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map((h) => (h.startsWith("#") ? h : `#${h}`));
+  const result = templatePosts(ctx, env("APP_DIR", "."), hashtags);
+  if (result.missing.length) {
+    warning(
+      `No "What's new" text for ${result.missing.join(", ")} (store/android/<lang>/changelogs/default.txt), so ${result.missing.length > 1 ? "those languages are" : "that language is"} left out. Templates don't translate.`,
+    );
+  }
+  return {
+    user_facing: result.userFacing,
+    skip_reason: result.skipReason,
+    headline: result.headline,
+    posts: result.posts.map((p) => ({
+      language: p.language,
+      linkedin: p.linkedin,
+      hashtags: p.hashtags,
+      facebook: p.facebook,
+      youtube_title: p.youtubeTitle,
+      youtube_description: p.youtubeDescription,
+      youtube_tags: p.youtubeTags,
+    })),
+  };
+}
+
+async function fromClaude(ctx: Context, writer: "claude-code" | "api", model: string): Promise<Output> {
+  const askOnce = (feedback: string) =>
+    writer === "api" ? ask(new Anthropic(), model, ctx, feedback) : askClaudeCode(model, ctx, feedback);
+  let out = await askOnce("");
+  const issues = problems(out, ctx);
+  if (issues.length) {
+    warning(`Asking again: ${issues.join(" ")}`);
+    out = await askOnce(`A previous attempt had these problems; avoid them:\n- ${issues.join("\n- ")}`);
+    for (const issue of problems(out, ctx)) warning(issue);
+  }
+  return out;
+}
+
 async function main(): Promise<void> {
   const ctx = readJson<Context>(outPath("context.json"));
   const dryRun = envBool("DRY_RUN", true);
   const model = env("MODEL", "claude-sonnet-5-5");
-  if (!env("ANTHROPIC_API_KEY")) throw new Error("Secret ANTHROPIC_API_KEY is missing (console.anthropic.com → API keys).");
-
-  const client = new Anthropic();
-  let out = await ask(client, model, ctx, "");
-  const issues = problems(out, ctx);
-  if (issues.length) {
-    warning(`Asking again: ${issues.join(" ")}`);
-    out = await ask(client, model, ctx, `A previous attempt had these problems; avoid them:\n- ${issues.join("\n- ")}`);
-    for (const issue of problems(out, ctx)) warning(issue);
-  }
+  const writer = pickWriter();
+  console.log(`Writer: ${writer}`);
+  const out = writer === "template" ? fromTemplate(ctx) : await fromClaude(ctx, writer, model);
+  const label = writer === "template" ? "templates (no AI)" : writer === "claude-code" ? `${model} via Claude Code (subscription)` : `${model} via API`;
 
   if (!out.user_facing) {
     const reason = out.skip_reason || "No user-facing changes.";
@@ -151,14 +284,14 @@ async function main(): Promise<void> {
       youtubeDescription: p.youtube_description,
       youtubeTags: p.youtube_tags,
     }));
-  if (perLanguage.length === 0) throw new Error("Claude returned no posts in the requested languages.");
+  if (perLanguage.length === 0) throw new Error("No posts in the requested languages.");
 
   const posts: Posts = {
     key: ctx.key,
     userFacing: true,
     skipReason: "",
     headline: out.headline,
-    model,
+    model: label,
     perLanguage,
     linkedin: buildLinkedIn(perLanguage, ctx.app),
     facebook: buildFacebook(perLanguage, ctx.app),

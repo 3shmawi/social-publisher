@@ -2,6 +2,9 @@
 # YouTube. Called from each app repo by a small .github/workflows/social.yml
 # (examples/social.yml). README.md has the full setup.
 #
+# Posts are written by Claude Code on your Claude plan (CLAUDE_CODE_OAUTH_TOKEN),
+# the API (ANTHROPIC_API_KEY) or, with neither, fixed templates (no AI).
+#
 #   generate ─► approve (environment "social": you review the posts) ─┬─► facebook ─┐
 #   (collect, write posts with Claude, find video,                    ├─► linkedin ─┼─► summary
 #    check credentials; job summary = review page)                    └─► youtube  ─┘
@@ -90,12 +93,27 @@ on:
         description: Refuse to post when the environment has no required reviewers
         type: boolean
         default: true
+      writer:
+        description: >-
+          Who writes the posts: auto (Claude Code on your Claude plan when
+          CLAUDE_CODE_OAUTH_TOKEN is set, else the API when ANTHROPIC_API_KEY
+          is set, else templates), claude-code, api or template (no AI)
+        type: string
+        default: auto
+      hashtags:
+        description: Hashtags for template posts, comma-separated (e.g. Flutter,MobileApps)
+        type: string
+        default: ''
       model:
         type: string
         default: claude-sonnet-5-5
     secrets:
+      CLAUDE_CODE_OAUTH_TOKEN:
+        description: From `claude setup-token` (Pro/Max plan, ~1 year); writes posts on your plan
+        required: false
       ANTHROPIC_API_KEY:
-        required: true
+        description: Optional; writes posts through the API (needs API credit)
+        required: false
       FB_PAGE_ID:
         required: false
       FB_PAGE_TOKEN:
@@ -182,12 +200,15 @@ jobs:
           LINKEDIN_AS: ${{ inputs.linkedin_as }}
         run: npx tsx scripts/collect.ts
 
-      - name: Write the posts (Claude)
+      - name: Write the posts
         id: generate
         if: steps.collect.outputs.skip != 'true'
         working-directory: publisher
         env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          WRITER: ${{ inputs.writer }}
+          HASHTAGS: ${{ inputs.hashtags }}
           MODEL: ${{ inputs.model }}
           VOICE: ${{ inputs.voice }}
         run: npx tsx scripts/generate.ts
