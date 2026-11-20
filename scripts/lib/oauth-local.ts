@@ -43,3 +43,35 @@ export function listening(port: number): Promise<number> {
     });
   });
 }
+
+/**
+ * fetch for the token helpers: retries network errors (not HTTP errors) and,
+ * if they keep failing, says which host and why instead of Node's bare
+ * "fetch failed".
+ */
+export async function netFetch(url: string, init?: RequestInit): Promise<Response> {
+  const host = new URL(url).host;
+  let last: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      return await fetch(url, { ...init, signal: AbortSignal.timeout(30_000) });
+    } catch (err) {
+      last = err;
+      if (attempt < 3) await new Promise((r) => setTimeout(r, attempt * 2000));
+    }
+  }
+  throw new Error(describeNetworkError(host, last));
+}
+
+export function describeNetworkError(host: string, err: unknown): string {
+  const cause = (err as { cause?: { code?: string; message?: string } })?.cause;
+  const code = cause?.code ?? (err as { name?: string })?.name ?? "";
+  const detail = cause?.message ?? (err as Error)?.message ?? String(err);
+  const hint =
+    code === "ENOTFOUND" || code === "EAI_AGAIN"
+      ? "The name couldn't be looked up: check your internet connection or DNS."
+      : /CERT|SSL|TLS|SELF_SIGNED/i.test(`${code} ${detail}`)
+        ? "Something is intercepting HTTPS (a VPN, proxy or antivirus): turn it off and try again."
+        : "Something blocked the connection: turn off any VPN or proxy, or try another network (e.g. a phone hotspot).";
+  return `Couldn't reach ${host} (${code || "network error"}: ${detail}). ${hint} Then run this script again; the browser step has to be repeated.`;
+}

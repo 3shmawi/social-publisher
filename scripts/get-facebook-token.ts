@@ -7,12 +7,12 @@
 // User token with pages_show_list, pages_read_engagement, pages_manage_posts
 // (README → "Facebook Page", step 3). Prints FB_PAGE_ID and FB_PAGE_TOKEN for
 // each Page you manage. You can pass FB_APP_ID / FB_APP_SECRET / FB_USER_TOKEN as env vars.
-import { ask } from "./lib/oauth-local.ts";
+import { ask, netFetch } from "./lib/oauth-local.ts";
 
 const VERSION = process.env.FB_GRAPH_VERSION ?? "v24.0";
 
 async function graph<T>(path: string, params: Record<string, string>): Promise<T> {
-  const res = await fetch(`https://graph.facebook.com/${VERSION}/${path}?${new URLSearchParams(params)}`);
+  const res = await netFetch(`https://graph.facebook.com/${VERSION}/${path}?${new URLSearchParams(params)}`);
   const data = (await res.json()) as T & { error?: { message?: string } };
   if (!res.ok || data.error) throw new Error(`Graph API: ${data.error?.message ?? res.status}`);
   return data;

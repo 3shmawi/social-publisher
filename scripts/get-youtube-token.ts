@@ -10,7 +10,7 @@
 //
 // You can also pass YT_CLIENT_ID and YT_CLIENT_SECRET as environment variables.
 import { randomBytes } from "node:crypto";
-import { ask, listening, waitForRedirect } from "./lib/oauth-local.ts";
+import { ask, listening, waitForRedirect, netFetch } from "./lib/oauth-local.ts";
 
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const code = query.get("code");
   if (!code) throw new Error(`Google returned: ${query.get("error") ?? "no code"}`);
 
-  const res = await fetch("https://oauth2.googleapis.com/token", {
+  const res = await netFetch("https://oauth2.googleapis.com/token", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
