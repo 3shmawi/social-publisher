@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy — Mohager Social Publisher</title>
+  <meta name="description" content="Privacy policy of Mohager Social Publisher, the tool that announces Mohager app updates on Mohager's own social media accounts.">
+  <meta name="theme-color" content="#0F6B4F">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/i18n.js"></script>
+</head>
+<body>
+<header class="site">
+  <div class="wrap">
+    <a class="brand" href="index.html"><span class="logo">M</span>Mohager Social Publisher</a>
+    <nav class="links">
+      <a class="hide-sm" href="privacy.html"><span data-lang="en">Privacy</span><span data-lang="ar">الخصوصية</span></a>
+      <button class="lang" id="lang-toggle" type="button">العربية</button>
+    </nav>
+  </div>
+</header>
+<main class="wrap">
+  <article class="doc">
+    <div data-lang="en">
+      <h1>Privacy Policy</h1>
+      <p class="updated">Last updated: 20 November 2026</p>
+      <p><strong>Mohager Social Publisher</strong> ("the tool") is an automation that Mohager runs in its own GitHub repositories. It announces new versions of Mohager's apps on <strong>Mohager's own</strong> Facebook Page, LinkedIn profile and company page, and YouTube channel. It is not offered to anyone else, and nobody other than Mohager signs in to it.</p>
+
+      <h2>What the tool accesses</h2>
+      <ul>
+        <li><strong>Facebook:</strong> the name and ID of Mohager's Page, and permission to publish posts, photos and videos on that Page (<code>pages_show_list</code>, <code>pages_read_engagement</code>, <code>pages_manage_posts</code>).</li>
+        <li><strong>LinkedIn:</strong> the ID of Mohager's own profile (to post as it), the company pages Mohager administers, and permission to publish posts on them.</li>
+        <li><strong>YouTube:</strong> the name of Mohager's channel and permission to upload videos to it.</li>
+      </ul>
+      <p>The tool <strong>does not</strong> read messages, comments, followers, viewers or any other person's data, and it does not collect information about the people who see the posts.</p>
+
+      <h2>What the tool processes</h2>
+      <ul>
+        <li>The release notes, commit messages and pull request titles of Mohager's own apps, to write the announcements.</li>
+        <li>These texts may be sent to <strong>Anthropic (Claude)</strong> to draft the posts. Mohager reviews and approves every post before it is published.</li>
+        <li>Release videos and images of Mohager's apps, uploaded to Mohager's own accounts.</li>
+      </ul>
+
+      <h2>Storage and security</h2>
+      <ul>
+        <li>Access tokens are stored only as encrypted GitHub Actions secrets in Mohager's repositories and are never printed or shared.</li>
+        <li>Drafted posts are kept as GitHub Actions run artifacts for up to 30 days, visible only to Mohager.</li>
+        <li>All connections use HTTPS.</li>
+      </ul>
+      <p>Mohager does not sell data, does not use it for advertising and does not share it with anyone except the platforms the posts are published on.</p>
+
+      <h2>This website</h2>
+      <p>This site uses no cookies, analytics or trackers. Your language choice is remembered only in your own browser.</p>
+
+      <h2 id="deletion">Data deletion</h2>
+      <p>The tool stores no personal data about anyone other than Mohager. To remove the tool's access to an account, Mohager revokes it in that platform's settings:</p>
+      <ul>
+        <li>Facebook: Settings &amp; privacy → Settings → Business integrations → remove the app.</li>
+        <li>LinkedIn: Settings → Data privacy → Permitted services → remove the app.</li>
+        <li>Google / YouTube: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> → remove access.</li>
+      </ul>
+      <p>Then the tokens are deleted from GitHub secrets. Anyone with a question about data related to this tool can write to the address below; requests are answered within 30 days.</p>
+
+      <h2>Changes</h2>
+      <p>This page is updated when the tool changes, and the date above is adjusted.</p>
+
+      <h2>Contact</h2>
+      <p><a href="mailto:mohager.dev@gmail.com">mohager.dev@gmail.com</a></p>
+    </div>
+
+    <div data-lang="ar">
+      <h1>سياسة الخصوصية</h1>
+      <p class="updated">آخر تحديث: 20 نوفمبر 2026</p>
+      <p><strong>Mohager Social Publisher</strong> ("الأداة") أداة أتمتة يشغّلها Mohager في مستودعاته على GitHub. تعلن عن الإصدارات الجديدة من تطبيقات Mohager على <strong>حسابات Mohager نفسه</strong>: صفحة فيسبوك، وحساب وصفحة شركة على لينكدإن، وقناة يوتيوب. الأداة غير متاحة لأي شخص آخر، ولا يسجّل الدخول إليها أحد غير Mohager.</p>
+
+      <h2>ما تصل إليه الأداة</h2>
+      <ul>
+        <li><strong>فيسبوك:</strong> اسم صفحة Mohager ومعرّفها، وصلاحية نشر المنشورات والصور والفيديوهات على هذه الصفحة.</li>
+        <li><strong>لينكدإن:</strong> معرّف حساب Mohager (للنشر باسمه)، وصفحات الشركة التي يديرها، وصلاحية النشر عليها.</li>
+        <li><strong>يوتيوب:</strong> اسم قناة Mohager وصلاحية رفع الفيديوهات عليها.</li>
+      </ul>
+      <p>الأداة <strong>لا</strong> تقرأ الرسائل أو التعليقات أو المتابعين أو المشاهدين أو بيانات أي شخص آخر، ولا تجمع معلومات عن الأشخاص الذين يرون المنشورات.</p>
+
+      <h2>ما تعالجه الأداة</h2>
+      <ul>
+        <li>ملاحظات الإصدار ورسائل الـ commits وعناوين طلبات الدمج الخاصة بتطبيقات Mohager، لكتابة الإعلانات.</li>
+        <li>قد تُرسل هذه النصوص إلى <strong>Anthropic (Claude)</strong> لصياغة المنشورات. يراجع Mohager كل منشور ويوافق عليه قبل نشره.</li>
+        <li>فيديوهات وصور إصدارات تطبيقات Mohager، تُرفع على حسابات Mohager نفسه.</li>
+      </ul>
+
+      <h2>التخزين والأمان</h2>
+      <ul>
+        <li>تُخزَّن رموز الوصول فقط كأسرار مشفّرة في GitHub Actions داخل مستودعات Mohager، ولا تُطبع ولا تُشارك أبداً.</li>
+        <li>تُحفظ مسودات المنشورات كملفات تشغيل في GitHub Actions لمدة أقصاها 30 يوماً، ولا يراها غير Mohager.</li>
+        <li>كل الاتصالات تتم عبر HTTPS.</li>
+      </ul>
+      <p>لا يبيع Mohager أي بيانات، ولا يستخدمها في الإعلانات، ولا يشاركها مع أحد غير المنصات التي تُنشر عليها المنشورات.</p>
+
+      <h2>هذا الموقع</h2>
+      <p>لا يستخدم هذا الموقع ملفات تعريف الارتباط (cookies) أو أدوات تحليل أو تتبع. يُحفظ اختيارك للغة في متصفحك فقط.</p>
+
+      <h2>حذف البيانات</h2>
+      <p>لا تخزّن الأداة أي بيانات شخصية عن أحد غير Mohager. لإلغاء وصول الأداة إلى أي حساب، يلغيه Mohager من إعدادات المنصة:</p>
+      <ul>
+        <li>فيسبوك: الإعدادات والخصوصية ← الإعدادات ← عمليات تكامل الأعمال ← إزالة التطبيق.</li>
+        <li>لينكدإن: الإعدادات ← خصوصية البيانات ← الخدمات المسموح بها ← إزالة التطبيق.</li>
+        <li>جوجل / يوتيوب: <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a> ← إزالة الوصول.</li>
+      </ul>
+      <p>ثم تُحذف الرموز من أسرار GitHub. لأي سؤال عن بيانات متعلقة بهذه الأداة، راسلنا على العنوان أدناه؛ نرد على الطلبات خلال 30 يوماً.</p>
+
+      <h2>التغييرات</h2>
+      <p>تُحدَّث هذه الصفحة عند تغيير الأداة، ويُعدَّل التاريخ أعلاه.</p>
+
+      <h2>التواصل</h2>
+      <p><a href="mailto:mohager.dev@gmail.com">mohager.dev@gmail.com</a></p>
+    </div>
+  </article>
+</main>
+<footer class="site">
+  <div class="wrap">
+    <span>© 2026 Mohager</span>
+    <nav>
+      <a href="privacy.html"><span data-lang="en">Privacy policy</span><span data-lang="ar">سياسة الخصوصية</span></a>
+      <a href="mailto:mohager.dev@gmail.com"><span data-lang="en">Contact</span><span data-lang="ar">تواصل معنا</span></a>
+    </nav>
+  </div>
+</footer>
+</body>
+</html>

@@ -37,6 +37,12 @@ generate ─► approve ─┬─► facebook ─┐
 5. [Run a dry run, then go live](#5-dry-run-then-go-live)
 6. [Reference: inputs, behaviour, troubleshooting](#reference)
 
+**Privacy policy and home page** for the Meta, LinkedIn and Google apps:
+[3shmawi.github.io/social-publisher/privacy.html](https://3shmawi.github.io/social-publisher/privacy.html)
+(home page: `…/social-publisher/`, data deletion: `…/privacy.html#deletion`).
+They live in `site/` and are published by `.github/workflows/pages.yml`
+(one-time: *Settings → Pages → Source: GitHub Actions*).
+
 The token helpers in `scripts/` run on your own computer (Node 22+):
 
 ```bash
