@@ -57,12 +57,13 @@ jobs:
       languages: en,ar
       linkedin_as: both            # person, organization or both
       platforms: facebook,linkedin,youtube
+      hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
       release_tag: ${{ inputs.release_tag || '' }}
       force: ${{ inputs.force || false }}
       dry_run: ${{ (github.event_name == 'workflow_dispatch' && inputs.dry_run) || (github.event_name != 'workflow_dispatch' && vars.SOCIAL_LIVE != 'true') }}
     secrets:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # `claude setup-token`; or none for template posts
       FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
       FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
       LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}

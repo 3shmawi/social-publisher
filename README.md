@@ -1,8 +1,11 @@
 # social-publisher
 
 Announces each app update on **LinkedIn**, a **Facebook Page** and **YouTube**,
-from GitHub Actions. Claude writes a version for each platform (in English,
+from GitHub Actions. A version is written for each platform (in English,
 Arabic or both), you review and approve it in the Actions UI, then it posts.
+The posts are written by Claude on your **Claude Pro/Max plan** (no API
+credit needed) or, with no Claude token, by fixed **templates** (no AI);
+see [Who writes the posts](#0-who-writes-the-posts).
 
 - Runs when you publish a GitHub Release or push a version tag, every two weeks on a schedule, or by hand.
 - **Dry run by default**: generates the posts and shows them, publishes nothing.
@@ -19,13 +22,14 @@ generate ─► approve ─┬─► facebook ─┐
 
 | Job | What it does |
 |---|---|
-| **Generate posts** | Works out what to post about (the release notes, or the commits and merged PRs since the last post), skips internal-only updates (chore, ci, refactor, ...), asks Claude (`claude-sonnet-5-5`) for the posts, finds the video, checks every platform's credentials. Its job summary is your review page; the posts are also saved as the `social-posts` artifact. |
+| **Generate posts** | Works out what to post about (the release notes, or the commits and merged PRs since the last post), skips internal-only updates (chore, ci, refactor, ...), writes the posts (Claude or templates), finds the video, checks every platform's credentials. Its job summary is your review page; the posts are also saved as the `social-posts` artifact. |
 | **Approve posts** | Waits for a required reviewer of the `social` environment. Skipped in dry runs. |
 | **Facebook / LinkedIn / YouTube** | Publish, each on its own, after approval. |
 | **Summary** | One table: what posted, what failed and why, links to the posts. |
 
 ## Contents
 
+0. [Who writes the posts: your Claude plan, or templates](#0-who-writes-the-posts)
 1. [Facebook Page: Meta app and long-lived Page token](#1-facebook-page)
 2. [LinkedIn: app, products, token and author URN](#2-linkedin)
 3. [YouTube: Google Cloud project, API and refresh token](#3-youtube)
@@ -40,6 +44,41 @@ git clone https://github.com/3shmawi/social-publisher && cd social-publisher && 
 ```
 
 ---
+
+## 0. Who writes the posts
+
+`writer: auto` (the default) picks the first that is set up:
+
+| Writer | Needs | What you get |
+|---|---|---|
+| **Claude Code on your Claude plan** | secret `CLAUDE_CODE_OAUTH_TOKEN` | Claude (`claude-sonnet-5-5`) decides whether the update is worth posting and writes each platform and language natively. Uses your Pro/Max plan's usage; no API credit. |
+| **Claude API** | secret `ANTHROPIC_API_KEY` | The same, billed to API credit (about $0.04 a run). |
+| **Templates (no AI)** | nothing | Fixed English and Arabic templates filled with the "What's new" items. |
+
+**Claude plan token (recommended).** On your computer, with
+[Claude Code](https://code.claude.com/docs/en/setup) installed and signed in to
+your Pro or Max account:
+
+```bash
+claude setup-token
+```
+
+It prints a token that lasts **one year**; store it as the
+`CLAUDE_CODE_OAUTH_TOKEN` secret. Each run makes one short request through
+Claude Code (pinned version, no tools) and counts toward your plan's usage
+limits like any other Claude Code use. The token is tied to your own
+subscription: use it for your own repos, and use an API key for anything
+shared with other people ([Anthropic's terms for subscription sign-in](https://code.claude.com/docs/en/legal-and-compliance)).
+When it expires, the job says so; run `claude setup-token` again.
+
+**Templates.** The "what's new" items come, per language, from the app's
+store text at the release commit (`store/android/<lang>/changelogs/default.txt`
+or `store/ios/<locale>/release_notes.txt`, as in flutter-project-kit apps),
+else (English only) from the release-note bullets or `feat`/`fix`/`perf`
+commits. A language with no items is left out, since templates don't
+translate. Add hashtags with the `hashtags` input. Templates can't judge
+whether a change matters to users: only the commit types and `[skip social]`
+decide.
 
 ## 1. Facebook Page
 
@@ -168,7 +207,8 @@ organization secrets.
 
 | Secret | Needed for | Where it comes from |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | always | [console.anthropic.com](https://console.anthropic.com) → API keys |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude writes the posts (recommended) | `claude setup-token` (section 0) |
+| `ANTHROPIC_API_KEY` | only to use the API instead | [console.anthropic.com](https://console.anthropic.com) → API keys (needs API credit) |
 | `FB_PAGE_ID` | Facebook | step 1.4 |
 | `FB_PAGE_TOKEN` | Facebook | step 1.4 |
 | `LINKEDIN_TOKEN` | LinkedIn | step 2.5 |
@@ -253,7 +293,9 @@ asking). To opt out on purpose, pass `require_approval: false`.
 | `force` | `false` | Post even if already posted |
 | `environment` | `social` | Approval environment |
 | `require_approval` | `true` | Refuse to post when the environment has no reviewer |
-| `model` | `claude-sonnet-5-5` | Claude model |
+| `writer` | `auto` | `auto`, `claude-code`, `api` or `template` (section 0) |
+| `hashtags` | | Hashtags for template posts, e.g. `Flutter,MobileApps` |
+| `model` | `claude-sonnet-5-5` | Claude model (Claude Code and API writers) |
 
 ### How it decides what to post
 
