@@ -32,13 +32,55 @@ async function main(): Promise<void> {
   });
 
   // 2. Page tokens fetched with a long-lived user token don't expire.
-  const pages = await graph<{ data: { id: string; name: string; access_token: string; tasks?: string[] }[] }>(
-    "me/accounts",
-    { access_token: long.access_token, fields: "id,name,access_token,tasks" },
-  );
-  if (pages.data.length === 0) throw new Error("No Pages found. Did you allow pages_show_list for the Page?");
+  type Page = { id: string; name: string; access_token?: string; tasks?: string[] };
+  const token = long.access_token;
+  const pages: Page[] = (
+    await graph<{ data: Page[] }>("me/accounts", { access_token: token, fields: "id,name,access_token,tasks" })
+  ).data;
 
-  for (const page of pages.data) {
+  // Pages run from a business portfolio (Meta Business Suite) or the new
+  // Pages experience often aren't listed under me/accounts: find them through
+  // the businesses, or by the Page ID, and ask each Page for its token.
+  if (pages.length === 0) {
+    const ids = new Set<string>();
+    try {
+      const businesses = await graph<{ data: { id: string }[] }>("me/businesses", { access_token: token });
+      for (const b of businesses.data) {
+        for (const edge of ["owned_pages", "client_pages"]) {
+          const list = await graph<{ data: { id: string }[] }>(`${b.id}/${edge}`, { access_token: token, fields: "id" });
+          for (const p of list.data) ids.add(p.id);
+        }
+      }
+    } catch {
+      // No business_management permission: fall back to asking for the ID.
+    }
+    if (ids.size === 0) {
+      console.log("\nme/accounts lists no Pages (normal for Pages in a business portfolio).");
+      const id = await ask("Page ID (Page → About → Page transparency → Page ID): ", "FB_PAGE_ID");
+      if (id) ids.add(id);
+    }
+    for (const id of ids) {
+      try {
+        pages.push(await graph<Page>(id, { access_token: token, fields: "id,name,access_token,tasks" }));
+      } catch (err) {
+        console.log(`  Page ${id}: ${(err as Error).message}`);
+      }
+    }
+  }
+
+  if (pages.length === 0 || pages.every((p) => !p.access_token)) {
+    const perms = await graph<{ data: { permission: string; status: string }[] }>("me/permissions", { access_token: token });
+    const granted = perms.data.filter((p) => p.status === "granted").map((p) => p.permission);
+    throw new Error(
+      `No Page token. The token has: ${granted.join(", ") || "no permissions"}. It needs pages_show_list, pages_read_engagement, pages_manage_posts (and business_management for a Page in a business portfolio), the Page ticked in the login popup, and Full control of the Page (Meta Business Suite → Settings → People).`,
+    );
+  }
+
+  for (const page of pages) {
+    if (!page.access_token) {
+      console.log(`\n${page.name}: no token (this account lacks Full control of the Page).`);
+      continue;
+    }
     const debug = await graph<{ data: { expires_at?: number } }>("debug_token", {
       input_token: page.access_token,
       access_token: `${appId}|${appSecret}`,
