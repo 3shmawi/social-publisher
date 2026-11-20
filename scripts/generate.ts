@@ -104,6 +104,17 @@ async function ask(client: Anthropic, model: string, ctx: Context, feedback: str
   return response.parsed_output;
 }
 
+/**
+ * The output schema for `claude --json-schema`. zod writes a 2020-12
+ * `$schema` line, which Claude Code's validator doesn't know ("no schema
+ * with key or ref"); without it the schema is plain, widely supported JSON
+ * Schema.
+ */
+function claudeCodeSchema(): Record<string, unknown> {
+  const { $schema: _ignored, ...schema } = z.toJSONSchema(Output) as Record<string, unknown>;
+  return schema;
+}
+
 /** Claude Code CLI version used with a subscription token (pinned, like every tool here). */
 const CLAUDE_CODE_VERSION = "2.1.317";
 
@@ -123,7 +134,7 @@ async function askClaudeCode(model: string, ctx: Context, feedback: string): Pro
     "--output-format",
     "json",
     "--json-schema",
-    JSON.stringify(z.toJSONSchema(Output)),
+    JSON.stringify(claudeCodeSchema()),
     "--model",
     model,
     "--system-prompt",

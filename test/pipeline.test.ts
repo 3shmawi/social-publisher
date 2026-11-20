@@ -276,6 +276,9 @@ echo '${JSON.stringify({ type: "result", is_error: false, result: "", structured
     const log = readFileSync(seen, "utf8");
     expect(log).toContain("@anthropic-ai/claude-code@");
     expect(log).toContain("--json-schema");
+    // Claude Code's validator rejects zod's 2020-12 "$schema" line.
+    expect(log).not.toContain("json-schema.org");
+    expect(log).toContain('"user_facing"');
     expect(log).toContain("--model claude-sonnet-5-5");
     expect(log).toContain("key: none");
     expect(log).toContain("token: oat-test");
