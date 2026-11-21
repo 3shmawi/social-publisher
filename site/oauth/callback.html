@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex">
+  <title>Sign-in code — Mohager Social Publisher</title>
+  <meta name="theme-color" content="#0F6B4F">
+  <link rel="stylesheet" href="../assets/style.css">
+  <style>
+    .code { font-family: ui-monospace, Menlo, monospace; word-break: break-all; padding: 12px; border-radius: 8px; border: 1px solid currentColor; }
+    button.copy { margin-top: 12px; }
+  </style>
+</head>
+<body>
+<main class="wrap">
+  <article class="doc">
+    <h1>Sign-in code</h1>
+    <!-- Where the token helpers (scripts/get-*-token.ts) send the browser
+         back when a platform only accepts an https redirect. Nothing here
+         leaves the page: no scripts from elsewhere, no analytics, and the
+         code is only shown to you. It works once, within a few minutes,
+         and only together with the app's secret on your computer. -->
+    <p id="intro">Copy this and paste it into the terminal where the token script is waiting:</p>
+    <p class="code" id="value">…</p>
+    <button class="copy" id="copy" type="button">Copy</button>
+    <p id="note"></p>
+  </article>
+</main>
+<script>
+  (function () {
+    var params = new URLSearchParams(location.search);
+    var value = document.getElementById('value');
+    var error = params.get('error');
+    if (error) {
+      document.getElementById('intro').textContent = 'The platform returned an error:';
+      value.textContent = error + (params.get('error_description') ? ': ' + params.get('error_description') : '');
+      document.getElementById('copy').hidden = true;
+      return;
+    }
+    // code|state: the script checks the state, so a code from another
+    // sign-in can't be swapped in.
+    var code = params.get('code') || '';
+    var state = params.get('state') || '';
+    value.textContent = code ? code + '|' + state : 'No code in this address.';
+    document.getElementById('copy').addEventListener('click', function () {
+      navigator.clipboard.writeText(value.textContent).then(function () {
+        document.getElementById('note').textContent = 'Copied. You can close this tab.';
+      });
+    });
+    // Keep the code out of the browser history.
+    history.replaceState(null, '', location.pathname);
+  })();
+</script>
+</body>
+</html>
