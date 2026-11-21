@@ -61,7 +61,8 @@ async function main(): Promise<void> {
     }
     for (const id of ids) {
       try {
-        pages.push(await graph<Page>(id, { access_token: token, fields: "id,name,access_token,tasks" }));
+        // `tasks` only exists on the me/accounts edge; the Page itself 400s on it.
+        pages.push(await graph<Page>(id, { access_token: token, fields: "id,name,access_token" }));
       } catch (err) {
         console.log(`  Page ${id}: ${(err as Error).message}`);
       }
