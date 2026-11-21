@@ -10,7 +10,7 @@
 // issues one (≈1 year), and your LINKEDIN_AUTHOR_URN.
 // You can pass LINKEDIN_CLIENT_ID / LINKEDIN_CLIENT_SECRET / LINKEDIN_SCOPES as env vars.
 import { randomBytes } from "node:crypto";
-import { ask, waitForRedirect } from "./lib/oauth-local.ts";
+import { ask, waitForRedirect, netFetch } from "./lib/oauth-local.ts";
 
 const PORT = 8585;
 
@@ -40,7 +40,7 @@ async function main(): Promise<void> {
   const code = query.get("code");
   if (!code) throw new Error(`LinkedIn returned: ${query.get("error")} ${query.get("error_description") ?? ""}`);
 
-  const res = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+  const res = await netFetch("https://www.linkedin.com/oauth/v2/accessToken", {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -60,7 +60,7 @@ async function main(): Promise<void> {
   };
   if (!token.access_token) throw new Error(`No token: ${token.error_description ?? res.status}`);
 
-  const me = await fetch("https://api.linkedin.com/v2/userinfo", {
+  const me = await netFetch("https://api.linkedin.com/v2/userinfo", {
     headers: { Authorization: `Bearer ${token.access_token}` },
   });
   const profile = me.ok ? ((await me.json()) as { sub?: string; name?: string }) : {};
@@ -74,7 +74,7 @@ async function main(): Promise<void> {
   }
   if (profile.sub) console.log(`LINKEDIN_AUTHOR_URN (${profile.name ?? "you"}):\nurn:li:person:${profile.sub}\n`);
   if (scopes.includes("r_organization_admin")) {
-    const orgs = await fetch(
+    const orgs = await netFetch(
       "https://api.linkedin.com/rest/organizationAcls?q=roleAssignee&role=ADMINISTRATOR&state=APPROVED",
       {
         headers: {

@@ -12,3 +12,22 @@ describe("local OAuth redirect", () => {
     expect(got).toBe(port);
   });
 });
+
+describe("network errors in the token helpers", () => {
+  it("names the host and the cause instead of 'fetch failed'", async () => {
+    const { describeNetworkError } = await import("../scripts/lib/oauth-local.ts");
+    const err = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "ECONNRESET", message: "socket hang up" },
+    });
+    const text = describeNetworkError("oauth2.googleapis.com", err);
+    expect(text).toContain("oauth2.googleapis.com");
+    expect(text).toContain("ECONNRESET: socket hang up");
+    expect(text).toContain("VPN");
+  });
+
+  it("points DNS failures at the connection", async () => {
+    const { describeNetworkError } = await import("../scripts/lib/oauth-local.ts");
+    const err = Object.assign(new TypeError("fetch failed"), { cause: { code: "ENOTFOUND", message: "getaddrinfo ENOTFOUND x" } });
+    expect(describeNetworkError("x", err)).toContain("DNS");
+  });
+});
