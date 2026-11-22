@@ -4,11 +4,19 @@ import { env, envBool, envList, error, run, summary, warning } from "./lib/env.t
 import { environmentHasReviewers } from "./lib/github.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as tiktok from "./platforms/tiktok.ts";
 import * as youtube from "./platforms/youtube.ts";
 
 async function main(): Promise<void> {
-  const enabled = envList("PLATFORMS", "facebook,linkedin,youtube");
-  const modules = { facebook, linkedin, youtube } as const;
+  const enabled = envList("PLATFORMS", "facebook,linkedin,youtube,tiktok");
+  // TikTok has no preflight: checking its token means refreshing it, and
+  // TikTok rotates the refresh token on every refresh. The TikTok job does it.
+  const modules = {
+    facebook,
+    linkedin,
+    youtube,
+    tiktok: { configured: tiktok.configured, preflight: async () => "set; checked when posting (a check would rotate the token)" },
+  } as const;
   const rows: string[] = ["| Platform | Credentials |", "|---|---|"];
 
   for (const name of Object.keys(modules) as (keyof typeof modules)[]) {

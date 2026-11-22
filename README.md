@@ -1,7 +1,7 @@
 # social-publisher
 
-Announces each app update on **LinkedIn**, a **Facebook Page** and **YouTube**,
-from GitHub Actions. A version is written for each platform (in English,
+Announces each app update on **LinkedIn**, a **Facebook Page**, **YouTube**
+and **TikTok** (as a draft in your TikTok inbox), from GitHub Actions. A version is written for each platform (in English,
 Arabic or both), you review and approve it in the Actions UI, then it posts.
 The posts are written by Claude on your **Claude Pro/Max plan** (no API
 credit needed) or, with no Claude token, by fixed **templates** (no AI);
@@ -16,15 +16,16 @@ see [Who writes the posts](#0-who-writes-the-posts).
 
 ```
 generate ─► approve ─┬─► facebook ─┐
-                     ├─► linkedin ─┼─► summary
-                     └─► youtube  ─┘
+                     ├─► linkedin ─┤
+                     ├─► youtube  ─┼─► summary
+                     └─► tiktok   ─┘
 ```
 
 | Job | What it does |
 |---|---|
 | **Generate posts** | Works out what to post about (the release notes, or the commits and merged PRs since the last post), skips internal-only updates (chore, ci, refactor, ...), writes the posts (Claude or templates), finds the video, checks every platform's credentials. Its job summary is your review page; the posts are also saved as the `social-posts` artifact. |
 | **Approve posts** | Waits for a required reviewer of the `social` environment. Skipped in dry runs. |
-| **Facebook / LinkedIn / YouTube** | Publish, each on its own, after approval. |
+| **Facebook / LinkedIn / YouTube / TikTok** | Publish, each on its own, after approval. TikTok puts the video in your TikTok inbox; you add a sound and post it in the app. |
 | **Summary** | One table: what posted, what failed and why, links to the posts. |
 
 ## Contents
@@ -33,6 +34,7 @@ generate ─► approve ─┬─► facebook ─┐
 1. [Facebook Page: Meta app and long-lived Page token](#1-facebook-page)
 2. [LinkedIn: app, products, token and author URN](#2-linkedin)
 3. [YouTube: Google Cloud project, API and refresh token](#3-youtube)
+3b. [TikTok: developer app, sandbox, token and the review](#3b-tiktok)
 4. [Add it to an app repo: secrets and caller workflow](#4-add-it-to-an-app-repo)
 5. [Run a dry run, then go live](#5-dry-run-then-go-live)
 6. [Reference: inputs, behaviour, troubleshooting](#reference)
@@ -202,6 +204,63 @@ the `linkedin_version` input to a recent month (`YYYYMM`).
 Quota: uploads are the most expensive YouTube API call, but the default daily
 quota of 10,000 units leaves room for a few uploads a day.
 
+## 3b. TikTok
+
+The video goes to your **TikTok inbox as a draft** (Content Posting API,
+"upload" flow, scope `video.upload`). TikTok sends you a notification; open
+it, add a sound and the caption (the run's summary shows a suggested one),
+and post. There's no caption field in this flow, and nothing is ever posted
+publicly without you. An update without a video is skipped.
+
+1. **Create the app.** [developers.tiktok.com](https://developers.tiktok.com)
+   → *Manage apps* → *Connect an app* (owner: you or your organization).
+   - *Basic information*: icon, name, category, description, **Terms of
+     Service** and **Privacy Policy** URLs (`…/social-publisher/terms.html`,
+     `…/privacy.html`), platform **Web**, website `https://3shmawi.github.io/social-publisher/`
+     (TikTok asks you to verify it: the verification file is in `site/`).
+   - *Products*: add **Login Kit** and **Content Posting API**. Leave *Direct
+     Post* off (this tool doesn't use it).
+   - *Scopes*: **`user.info.basic`** and **`video.upload`** only.
+   - *Login Kit → Redirect URI* (Web): `https://3shmawi.github.io/social-publisher/oauth/callback.html`
+2. **Sandbox first.** *Sandbox* → *Create sandbox* → *Target users* → add the
+   TikTok account you post from. The sandbox has its own **Client key** and
+   **Client secret**; it works for those accounts only, before the review.
+3. **Get the refresh token** (on your computer):
+   ```bash
+   TIKTOK_TOKEN_FILE=~/.tiktok-token npx tsx scripts/get-tiktok-token.ts
+   ```
+   It asks for the Client key and secret, opens TikTok's sign-in, and the
+   callback page shows a code to paste back. The token is saved to the file
+   (not printed). Try an upload:
+   ```bash
+   TIKTOK_CLIENT_KEY=… TIKTOK_CLIENT_SECRET=… TIKTOK_TOKEN_FILE=~/.tiktok-token \
+     npx tsx scripts/tiktok-try.ts some-video.mp4
+   ```
+4. **Token rotation (important).** TikTok replaces the refresh token **every
+   time it's used** (each lasts ~180 days) and the old one stops working.
+   So the TikTok job saves the new token back into the app repo's
+   `TIKTOK_REFRESH_TOKEN` secret after every run. That needs one more secret,
+   **`SOCIAL_SECRETS_TOKEN`**: GitHub → *Settings → Developer settings →
+   Fine-grained tokens → Generate*: repository access **only** your app repos,
+   permission **Secrets: Read and write** (nothing else), the longest expiry
+   you're comfortable with. Without it the TikTok job is skipped, so a
+   rotated token is never lost.
+   - Several app repos share the TikTok account? Each one's run rotates the
+     token, so pass them all in `tiktok_token_repos` (e.g. `me/app1,me/app2`)
+     and the token is saved to every one, and give the PAT access to all of them.
+   - Kit users: after the first `tool/setup_secrets.sh`, **delete
+     `TIKTOK_REFRESH_TOKEN` from `~/.app-secrets/shared.env`**. The workflow
+     owns it from then on; running the script again would put back a dead
+     token.
+5. **The review.** *App review* → submit with the production keys. TikTok
+   wants a **demo video** of the whole flow in the sandbox: see
+   [docs/tiktok-review-demo.md](docs/tiktok-review-demo.md) for the shot list.
+   After approval, sign in again with the **production** Client key and
+   secret (step 3) and store those.
+
+Limits: about 5 pending inbox uploads per 24 hours per account, which is far
+more than one release.
+
 ## 4. Add it to an app repo
 
 ### Secrets
@@ -226,6 +285,10 @@ organization secrets.
 | `YT_CLIENT_ID` | YouTube | step 3.3 |
 | `YT_CLIENT_SECRET` | YouTube | step 3.3 |
 | `YT_REFRESH_TOKEN` | YouTube | step 3.5 |
+| `TIKTOK_CLIENT_KEY` | TikTok | step 3b.1–2 |
+| `TIKTOK_CLIENT_SECRET` | TikTok | step 3b.1–2 |
+| `TIKTOK_REFRESH_TOKEN` | TikTok | step 3b.3; the workflow keeps it fresh |
+| `SOCIAL_SECRETS_TOKEN` | TikTok (saves the rotated token) | step 3b.4 |
 
 A platform without its secrets is skipped (shown in the summary), never failed.
 Set them from a terminal; values are read from stdin, so they don't end up in your
@@ -285,13 +348,14 @@ asking). To opt out on purpose, pass `require_approval: false`.
 | `about` | | One or two sentences about the app and its users; helps the writing |
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
-| `platforms` | `facebook,linkedin,youtube` | Any subset |
+| `platforms` | `facebook,linkedin,youtube,tiktok` | Any subset |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
 | `linkedin_as` | `person` | `person`, `organization` or `both` |
 | `linkedin_version` | `202609` | `LinkedIn-Version` header |
 | `facebook_graph_version` | `v24.0` | Graph API version |
 | `youtube_privacy` | `private` | `private`, `unlisted`, `public` |
 | `youtube_audited` | `false` | `true` once the YouTube audit has passed |
+| `tiktok_token_repos` | this repo | Repos whose `TIKTOK_REFRESH_TOKEN` gets the rotated token (step 3b.4) |
 | `release_tag` | | Empty: the triggering or latest release. `changes`: commits since the last post. Or a tag. |
 | `biweekly` | `true` | On schedule runs, skip odd ISO weeks |
 | `include_prereleases` | `false` | |
@@ -333,10 +397,10 @@ model, so they're always exact.
 
 | | Used for |
 |---|---|
-| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post |
+| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, TikTok inbox draft |
 | Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
 
-No video → YouTube is skipped (not failed). A vertical video under 3 minutes
+No video → YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes
 becomes a YouTube Short.
 
 ### State ("don't post twice")
@@ -345,7 +409,7 @@ Lightweight tags in the app repo, created through the API (they start no workflo
 
 - `social/posted/<key>/<channel>`: `<key>` is the release tag or
   `changes-<sha>`, `<channel>` is `facebook`, `linkedin-person`,
-  `linkedin-organization` or `youtube`. Present → that channel is skipped.
+  `linkedin-organization`, `youtube` or `tiktok`. Present → that channel is skipped.
   Re-running a failed job therefore only retries what failed.
 - `social/last-post`: the commit of the last posted update; the schedule
   starts from there.
@@ -358,7 +422,13 @@ To post an update again: run with `force: true`, or delete the tag
 - Secrets reach scripts only through `env:`; tokens made during a run (page,
   access tokens) are masked; nothing logs request headers.
 - Before approval, platform secrets are used only for read-only credential
-  checks. After approval, each posting job gets only its own platform's secrets.
+  checks (TikTok's token isn't touched before approval: checking it would
+  rotate it). After approval, each posting job gets only its own platform's
+  secrets.
+- TikTok's rotated refresh token is masked, written to a file in
+  `$RUNNER_TEMP` (never to `out/`, which is uploaded), saved with
+  `gh secret set` from stdin and deleted. `SOCIAL_SECRETS_TOKEN` should be a
+  fine-grained token limited to your app repos and *Secrets: Read and write*.
 - Release notes and PR texts are passed to Claude as data inside `<update>`
   tags, and you review the result before anything is posted: a PR author
   can't make it post something you didn't see.
@@ -378,6 +448,9 @@ To post an update again: run with `force: true`, or delete the tag
 | `The "social" environment has no required reviewers` | Section 4, approval environment |
 | `GitHub create ref …: HTTP 403` | The caller job needs `permissions: contents: write` |
 | YouTube video is private | Expected until the audit passes (step 3.6) |
+| `TIKTOK_REFRESH_TOKEN was rejected` | A run couldn't save the rotated token, or it's older than ~180 days: step 3b.3 again, then set the secret |
+| `Couldn't save TIKTOK_REFRESH_TOKEN in …` | `SOCIAL_SECRETS_TOKEN` expired or lacks *Secrets: Read and write* on that repo; fix it **before the next run**, then step 3b.3 |
+| TikTok: `not configured: missing secrets SOCIAL_SECRETS_TOKEN` | Step 3b.4 |
 
 ## Development
 
