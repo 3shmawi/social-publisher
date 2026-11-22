@@ -1,7 +1,8 @@
 # social-publisher
 
-Announces each app update on **LinkedIn**, a **Facebook Page**, **YouTube**
-and **TikTok** (as a draft in your TikTok inbox), from GitHub Actions. A version is written for each platform (in English,
+Announces each app update on **LinkedIn**, a **Facebook Page**, **Instagram**
+(as a Reel), **YouTube** and **TikTok** (as a draft in your TikTok inbox),
+from GitHub Actions. A version is written for each platform (in English,
 Arabic or both), you review and approve it in the Actions UI, then it posts.
 The posts are written by Claude on your **Claude Pro/Max plan** (no API
 credit needed) or, with no Claude token, by fixed **templates** (no AI);
@@ -16,6 +17,7 @@ see [Who writes the posts](#0-who-writes-the-posts).
 
 ```
 generate ─► approve ─┬─► facebook ─┐
+                     ├─► instagram┤
                      ├─► linkedin ─┤
                      ├─► youtube  ─┼─► summary
                      └─► tiktok   ─┘
@@ -25,13 +27,14 @@ generate ─► approve ─┬─► facebook ─┐
 |---|---|
 | **Generate posts** | Works out what to post about (the release notes, or the commits and merged PRs since the last post), skips internal-only updates (chore, ci, refactor, ...), writes the posts (Claude or templates), finds the video, checks every platform's credentials. Its job summary is your review page; the posts are also saved as the `social-posts` artifact. |
 | **Approve posts** | Waits for a required reviewer of the `social` environment. Skipped in dry runs. |
-| **Facebook / LinkedIn / YouTube / TikTok** | Publish, each on its own, after approval. TikTok puts the video in your TikTok inbox; you add a sound and post it in the app. |
+| **Facebook / Instagram / LinkedIn / YouTube / TikTok** | Publish, each on its own, after approval. TikTok puts the video in your TikTok inbox; you add a sound and post it in the app. |
 | **Summary** | One table: what posted, what failed and why, links to the posts. |
 
 ## Contents
 
 0. [Who writes the posts: your Claude plan, or templates](#0-who-writes-the-posts)
 1. [Facebook Page: Meta app and long-lived Page token](#1-facebook-page)
+1b. [Instagram: Reels with the same Meta app and Page token](#1b-instagram)
 2. [LinkedIn: app, products, token and author URN](#2-linkedin)
 3. [YouTube: Google Cloud project, API and refresh token](#3-youtube)
 3b. [TikTok: developer app, sandbox, token and the review](#3b-tiktok)
@@ -118,6 +121,31 @@ Page role, or remove the app).
 
 What gets posted: a video post when the update has a video, a photo post
 when it has an image (see [media](#media)), otherwise a text post with a link card.
+
+## 1b. Instagram
+
+The release video is published as a **Reel** on the Instagram professional
+account linked to your Facebook Page, with the Facebook text and hashtags as
+the caption (links can't be clicked in captions but stay copyable). It uses
+the same Meta app and Page token as Facebook. An update without a video is
+skipped: Instagram can only take images from a public URL.
+
+1. **Link the accounts.** The Instagram account must be **professional**
+   (Business or Creator: Instagram → Settings → Account type and tools) and
+   **linked to the Facebook Page** (Meta Business Suite → Settings →
+   Instagram accounts, or Page → Settings → Linked accounts).
+2. **Add the permissions.** Redo step 1.3 with two more permissions:
+   `instagram_basic` and `instagram_content_publish`, and run
+   `scripts/get-facebook-token.ts` again. It prints a new `FB_PAGE_TOKEN`
+   (replace the old one; it still works for Facebook) and **`IG_USER_ID`**
+   (17841…). As with Facebook, your own accounts need no App Review. If the
+   Explorer doesn't offer the two permissions, add the Instagram use case
+   to the app first (Meta app → *Use cases* → *Add use case*).
+3. Set `IG_USER_ID` and the new `FB_PAGE_TOKEN` as secrets.
+
+Limits: 100 API posts per 24 hours; captions up to 2,200 characters and 30
+hashtags; Reels 3 s to 15 min, MP4/MOV (H.264 or HEVC, AAC), up to 300 MB,
+9:16 recommended.
 
 ## 2. LinkedIn
 
@@ -275,7 +303,8 @@ organization secrets.
 | `CLAUDE_CODE_OAUTH_TOKEN` | Claude writes the posts (recommended) | `claude setup-token` (section 0) |
 | `ANTHROPIC_API_KEY` | only to use the API instead | [console.anthropic.com](https://console.anthropic.com) → API keys (needs API credit) |
 | `FB_PAGE_ID` | Facebook | step 1.4 |
-| `FB_PAGE_TOKEN` | Facebook | step 1.4 |
+| `FB_PAGE_TOKEN` | Facebook, Instagram | step 1.4 (with the Instagram permissions: 1b.2) |
+| `IG_USER_ID` | Instagram | step 1b.2 |
 | `LINKEDIN_TOKEN` | LinkedIn | step 2.5 |
 | `LINKEDIN_AUTHOR_URN` | LinkedIn as you | step 2.5 (`urn:li:person:…`) |
 | `LINKEDIN_ORG_URN` | LinkedIn as a page | step 2.6 (`urn:li:organization:…`) |
@@ -348,7 +377,7 @@ asking). To opt out on purpose, pass `require_approval: false`.
 | `about` | | One or two sentences about the app and its users; helps the writing |
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
-| `platforms` | `facebook,linkedin,youtube,tiktok` | Any subset |
+| `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
 | `linkedin_as` | `person` | `person`, `organization` or `both` |
 | `linkedin_version` | `202609` | `LinkedIn-Version` header |
@@ -397,10 +426,10 @@ model, so they're always exact.
 
 | | Used for |
 |---|---|
-| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, TikTok inbox draft |
+| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, Instagram Reel, TikTok inbox draft |
 | Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
 
-No video → YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes
+No video → Instagram, YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes
 becomes a YouTube Short.
 
 ### State ("don't post twice")
@@ -409,7 +438,7 @@ Lightweight tags in the app repo, created through the API (they start no workflo
 
 - `social/posted/<key>/<channel>`: `<key>` is the release tag or
   `changes-<sha>`, `<channel>` is `facebook`, `linkedin-person`,
-  `linkedin-organization`, `youtube` or `tiktok`. Present → that channel is skipped.
+  `linkedin-organization`, `instagram`, `youtube` or `tiktok`. Present → that channel is skipped.
   Re-running a failed job therefore only retries what failed.
 - `social/last-post`: the commit of the last posted update; the schedule
   starts from there.
@@ -448,6 +477,8 @@ To post an update again: run with `force: true`, or delete the tag
 | `The "social" environment has no required reviewers` | Section 4, approval environment |
 | `GitHub create ref …: HTTP 403` | The caller job needs `permissions: contents: write` |
 | YouTube video is private | Expected until the audit passes (step 3.6) |
+| `Instagram: the token lacks a permission` | Step 1b.2: a Page token with `instagram_basic` and `instagram_content_publish` |
+| `Instagram couldn't process the video` | Re-encode: MP4, H.264 + AAC, 9:16, 3 s to 15 min |
 | `TIKTOK_REFRESH_TOKEN was rejected` | A run couldn't save the rotated token, or it's older than ~180 days: step 3b.3 again, then set the secret |
 | `Couldn't save TIKTOK_REFRESH_TOKEN in …` | `SOCIAL_SECRETS_TOKEN` expired or lacks *Secrets: Read and write* on that repo; fix it **before the next run**, then step 3b.3 |
 | TikTok: `not configured: missing secrets SOCIAL_SECRETS_TOKEN` | Step 3b.4 |

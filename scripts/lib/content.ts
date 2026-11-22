@@ -56,6 +56,8 @@ export interface Posts {
   /** Final texts, links included, ready to publish. */
   linkedin: string;
   facebook: string;
+  /** Reel caption (optional in posts.json written before Instagram existed). */
+  instagram?: string;
   youtube: YouTubeMeta;
 }
 
@@ -68,7 +70,7 @@ export interface Media {
 }
 
 export interface PlatformResult {
-  platform: "facebook" | "linkedin" | "youtube" | "tiktok";
+  platform: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok";
   status: "posted" | "skipped" | "failed" | "already-posted";
   detail: string;
   links: { label: string; url: string }[];
@@ -158,6 +160,23 @@ export function buildLinkedIn(posts: LanguagePosts[], app: AppInfo): string {
 
 export function buildFacebook(posts: LanguagePosts[], app: AppInfo): string {
   return posts.map((p) => withLinks(p.facebook, app, p.language)).join(SEPARATOR);
+}
+
+/**
+ * Instagram caption: the Facebook text and hashtags per language. Links
+ * aren't clickable in captions but can still be copied, so they stay.
+ * Instagram allows 2,200 characters and 30 hashtags.
+ */
+export function buildInstagram(posts: LanguagePosts[], app: AppInfo): string {
+  const seen = new Set<string>();
+  const tags = posts
+    .flatMap((p) => p.hashtags.map(normalizeHashtag))
+    .filter((t) => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()))
+    .slice(0, 30);
+  const body = posts.map((p) => withLinks(p.facebook, app, p.language)).join(SEPARATOR);
+  const tagLine = tags.join(" ");
+  const room = 2200 - (tagLine ? [...tagLine].length + 2 : 0);
+  return tagLine ? `${clampChars(body, room)}\n\n${tagLine}` : clampChars(body, 2200);
 }
 
 // --- YouTube limits ------------------------------------------------------------
@@ -251,6 +270,7 @@ export function postsMarkdown(ctx: Context, posts: Posts, dryRun: boolean): stri
     `### Facebook (${[...posts.facebook].length} characters)`,
     fence(posts.facebook),
     "",
+    ...(posts.instagram ? [`### Instagram Reel caption (${[...posts.instagram].length} characters)`, fence(posts.instagram), ""] : []),
     "### YouTube",
     `**Title:** ${posts.youtube.title}`,
     "",

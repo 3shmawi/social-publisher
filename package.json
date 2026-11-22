@@ -2,7 +2,7 @@
   "name": "social-publisher",
   "version": "1.0.0",
   "private": true,
-  "description": "Reusable GitHub Actions workflow that announces app updates on YouTube, a Facebook Page, LinkedIn and TikTok.",
+  "description": "Reusable GitHub Actions workflow that announces app updates on YouTube, a Facebook Page, Instagram, LinkedIn and TikTok.",
   "type": "module",
   "license": "UNLICENSED",
   "engines": {

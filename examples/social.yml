@@ -56,7 +56,7 @@ jobs:
       website_url: https://cafe.example.com
       languages: en,ar
       linkedin_as: both            # person, organization or both
-      platforms: facebook,linkedin,youtube,tiktok
+      platforms: facebook,instagram,linkedin,youtube,tiktok
       # tiktok_token_repos: me/app1,me/app2   # repos sharing the TikTok account (default: this one)
       hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
@@ -67,6 +67,7 @@ jobs:
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}   # `claude setup-token`; or none for template posts
       FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
       FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}           # Instagram Reels (same Page token)
       LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
       LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
       LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
