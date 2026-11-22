@@ -429,7 +429,7 @@ model, so they're always exact.
 
 | | Used for |
 |---|---|
-| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, Instagram Reel, TikTok inbox draft |
+| Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, LinkedIn video post (up to 500 MB; one upload per author), Instagram Reel, TikTok inbox draft |
 | Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
 
 No video → Instagram, YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes

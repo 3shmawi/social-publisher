@@ -39,7 +39,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
         continue;
       }
       try {
-        links.push(await linkedin.publish(posts, target));
+        links.push(await linkedin.publish(posts, target, media, out));
         await markPosted(ctx.key, channel, ctx.sha);
       } catch (err) {
         failures.push((err as Error).message);
@@ -51,7 +51,12 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     if (links.length === 0 && skipped) {
       return { platform, status: "already-posted", detail: `Already posted "${ctx.key}".`, links };
     }
-    return { platform, status: "posted", detail: `Posted as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`, links };
+    return {
+      platform,
+      status: "posted",
+      detail: `Posted${media.video ? " with the video" : ""} as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`,
+      links,
+    };
   }
 
   if (await alreadyPosted(ctx.key, platform)) {

@@ -6,7 +6,15 @@
 // the preflight checks the expiry date; with LINKEDIN_REFRESH_TOKEN as well
 // (Community Management API apps get one, valid ~1 year) a fresh access token
 // is made on every run, so LINKEDIN_TOKEN never needs refreshing by hand.
-import { type PlatformResult, type Posts, toLittleText } from "../lib/content.ts";
+//
+// Video (Videos API, docs checked 2026-11-22, LinkedIn-Version up to
+// 202611): POST /rest/videos?action=initializeUpload (owner = the post's
+// author) → PUT each 4 MB part to its pre-signed uploadUrl, keep the ETags →
+// POST ?action=finalizeUpload → GET /rest/videos/{urn} until AVAILABLE →
+// the post gets content.media { title, id }. Up to 500 MB, 3 s to 30 min, MP4.
+import { open, stat } from "node:fs/promises";
+import path from "node:path";
+import { type Media, type PlatformResult, type Posts, toLittleText } from "../lib/content.ts";
 import { env, mask, warning } from "../lib/env.ts";
 import { HttpError, request, requestJson, truncate } from "../lib/http.ts";
 
@@ -120,11 +128,111 @@ export async function preflight(): Promise<string> {
   return who;
 }
 
+const api = () => env("LINKEDIN_API_BASE", "https://api.linkedin.com");
+const MAX_VIDEO = 500 * 1024 * 1024;
+
+function restHeaders(token: string): Record<string, string> {
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+    "LinkedIn-Version": env("LINKEDIN_VERSION", "202609"),
+    "X-Restli-Protocol-Version": "2.0.0",
+  };
+}
+
+interface UploadInit {
+  value: {
+    video: string;
+    uploadToken?: string;
+    uploadInstructions: { uploadUrl: string; firstByte: number; lastByte: number }[];
+  };
+}
+
+/** Upload the video for one author; returns its urn:li:video once LinkedIn can serve it. */
+export async function uploadVideo(file: string, owner: string, token: string): Promise<string> {
+  const size = (await stat(file)).size;
+  const init = await requestJson<UploadInit>(`${api()}/rest/videos?action=initializeUpload`, {
+    method: "POST",
+    headers: restHeaders(token),
+    body: JSON.stringify({
+      initializeUploadRequest: { owner, fileSizeBytes: size, uploadCaptions: false, uploadThumbnail: false },
+    }),
+    label: "LinkedIn video upload start",
+    retries: 1,
+  });
+
+  const etags: string[] = [];
+  const handle = await open(file, "r");
+  try {
+    for (const part of init.value.uploadInstructions) {
+      const length = part.lastByte - part.firstByte + 1;
+      const buffer = Buffer.alloc(length);
+      await handle.read(buffer, 0, length, part.firstByte);
+      // Pre-signed URL: no Authorization header.
+      const res = await request(part.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/octet-stream" },
+        body: buffer,
+        label: "LinkedIn video part",
+        retries: 3,
+      });
+      if (!res.ok) throw new Error(`LinkedIn video part: HTTP ${res.status} ${truncate(await res.text(), 200)}`);
+      const etag = res.headers.get("etag");
+      if (!etag) throw new Error("LinkedIn video part: no ETag in the response.");
+      etags.push(etag);
+    }
+  } finally {
+    await handle.close();
+  }
+
+  await request(`${api()}/rest/videos?action=finalizeUpload`, {
+    method: "POST",
+    headers: restHeaders(token),
+    body: JSON.stringify({
+      finalizeUploadRequest: { video: init.value.video, uploadToken: init.value.uploadToken ?? "", uploadedPartIds: etags },
+    }),
+    label: "LinkedIn video upload finish",
+    retries: 1,
+  }).then(async (res) => {
+    if (!res.ok) throw new Error(`LinkedIn video upload finish: HTTP ${res.status} ${truncate(await res.text(), 200)}`);
+  });
+
+  const deadline = Date.now() + Number(env("LINKEDIN_VIDEO_TIMEOUT_MS", "900000"));
+  const interval = Number(env("LINKEDIN_VIDEO_INTERVAL_MS", "10000"));
+  for (;;) {
+    const info = await requestJson<{ status?: string; processingFailureReason?: string }>(
+      `${api()}/rest/videos/${encodeURIComponent(init.value.video)}`,
+      { headers: restHeaders(token), label: "LinkedIn video status", retries: 2 },
+    );
+    if (info.status === "AVAILABLE") return init.value.video;
+    if (info.status === "PROCESSING_FAILED") {
+      throw new Error(`LinkedIn couldn't process the video (${info.processingFailureReason ?? "no reason given"}). It takes MP4, 3 s to 30 min.`);
+    }
+    if (Date.now() > deadline) throw new Error("LinkedIn: the video was still processing after 15 minutes; re-run the job.");
+    await new Promise((r) => setTimeout(r, interval));
+  }
+}
+
 /** Post to one author. post.ts calls this per target, so a re-run only retries the failed one. */
-export async function publish(posts: Posts, target: Target): Promise<PlatformResult["links"][number]> {
+export async function publish(
+  posts: Posts,
+  target: Target,
+  media?: Media,
+  outDir = "",
+): Promise<PlatformResult["links"][number]> {
   const token = await accessToken();
   const version = env("LINKEDIN_VERSION", "202609");
-  const response = await request("https://api.linkedin.com/rest/posts", {
+  let content: { media: { title: string; id: string } } | undefined;
+  if (media?.video) {
+    const file = path.join(outDir, media.video);
+    if ((await stat(file)).size > MAX_VIDEO) {
+      warning("LinkedIn: the video is over 500 MB; posting the text only.");
+    } else {
+      const id = await uploadVideo(file, target.urn, token);
+      content = { media: { title: posts.youtube?.title || "Video", id } };
+    }
+  }
+  const response = await request(`${api()}/rest/posts`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${token}`,
@@ -137,6 +245,7 @@ export async function publish(posts: Posts, target: Target): Promise<PlatformRes
       commentary: toLittleText(posts.linkedin),
       visibility: "PUBLIC",
       distribution: { feedDistribution: "MAIN_FEED", targetEntities: [], thirdPartyDistributionChannels: [] },
+      ...(content ? { content } : {}),
       lifecycleState: "PUBLISHED",
       isReshareDisabledByAuthor: false,
     }),
