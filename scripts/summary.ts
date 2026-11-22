@@ -16,7 +16,7 @@ const ICON: Record<PlatformResult["status"], string> = {
 async function main(): Promise<void> {
   const ctx = readJsonIfExists<Context>(outPath("context.json"));
   const dryRun = envBool("DRY_RUN", true);
-  const enabled = envList("PLATFORMS", "facebook,linkedin,youtube");
+  const enabled = envList("PLATFORMS", "facebook,linkedin,youtube,tiktok");
   const dir = outPath("results");
   const results = new Map<string, PlatformResult>();
   if (existsSync(dir)) {
@@ -27,7 +27,7 @@ async function main(): Promise<void> {
   }
 
   const rows = ["| Platform | Result | Links |", "|---|---|---|"];
-  for (const platform of ["facebook", "linkedin", "youtube"]) {
+  for (const platform of ["facebook", "linkedin", "youtube", "tiktok"]) {
     const r = results.get(platform);
     if (!enabled.includes(platform)) {
       rows.push(`| ${platform} | ⏭️ turned off | |`);

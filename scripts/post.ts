@@ -1,5 +1,5 @@
 // Step 5 (after approval): publish to one platform.
-//   npx tsx scripts/post.ts facebook|linkedin|youtube
+//   npx tsx scripts/post.ts facebook|linkedin|youtube|tiktok
 // Each place we post to ("channel": facebook, linkedin-person,
 // linkedin-organization, youtube) gets the tag social/posted/<key>/<channel>
 // once it's done, so a re-run never posts the same update there twice.
@@ -8,6 +8,7 @@ import { env, envBool, error, outPath, readJson, run, summary, warning, writeJso
 import { postedRef, putRef, refExists } from "./lib/github.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as tiktok from "./platforms/tiktok.ts";
 import * as youtube from "./platforms/youtube.ts";
 
 type Platform = PlatformResult["platform"];
@@ -56,15 +57,19 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     return { platform, status: "already-posted", detail: `Already posted "${ctx.key}".`, links: [] };
   }
   const result =
-    platform === "facebook" ? await facebook.publish(ctx, posts, media, out) : await youtube.publish(posts, media, out);
+    platform === "facebook"
+      ? await facebook.publish(ctx, posts, media, out)
+      : platform === "tiktok"
+        ? await tiktok.publish(posts, media, out)
+        : await youtube.publish(posts, media, out);
   if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha);
   return result;
 }
 
 async function main(): Promise<void> {
   const platform = process.argv[2] as Platform;
-  const modules = { facebook, linkedin, youtube };
-  if (!(platform in modules)) throw new Error("Usage: post.ts facebook|linkedin|youtube");
+  const modules = { facebook, linkedin, youtube, tiktok };
+  if (!(platform in modules)) throw new Error("Usage: post.ts facebook|linkedin|youtube|tiktok");
 
   let result: PlatformResult;
   const ctx = readJson<Context>(outPath("context.json"));

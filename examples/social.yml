@@ -56,7 +56,8 @@ jobs:
       website_url: https://cafe.example.com
       languages: en,ar
       linkedin_as: both            # person, organization or both
-      platforms: facebook,linkedin,youtube
+      platforms: facebook,linkedin,youtube,tiktok
+      # tiktok_token_repos: me/app1,me/app2   # repos sharing the TikTok account (default: this one)
       hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
       release_tag: ${{ inputs.release_tag || '' }}
@@ -75,3 +76,7 @@ jobs:
       YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
       YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
       YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+      SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}   # saves TikTok's rotated token

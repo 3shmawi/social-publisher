@@ -68,7 +68,7 @@ export interface Media {
 }
 
 export interface PlatformResult {
-  platform: "facebook" | "linkedin" | "youtube";
+  platform: "facebook" | "linkedin" | "youtube" | "tiktok";
   status: "posted" | "skipped" | "failed" | "already-posted";
   detail: string;
   links: { label: string; url: string }[];
