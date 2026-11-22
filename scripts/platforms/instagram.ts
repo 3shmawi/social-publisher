@@ -1,11 +1,16 @@
 // Instagram (professional account linked to the Facebook Page) through the
 // Instagram Platform API with Facebook Login, using the same Page token as
 // Facebook (it needs instagram_basic and instagram_content_publish too).
-// The release video is published as a Reel, from the local file:
-//   1. POST /{ig-user}/media  media_type=REELS, upload_type=resumable → {id, uri}
-//   2. POST {uri} (rupload.facebook.com)  Authorization: OAuth <token>, offset, file_size
-//   3. GET  /{container}?fields=status_code  until FINISHED
-//   4. POST /{ig-user}/media_publish  creation_id → media id → permalink
+// The release video is published as a Reel:
+//   1. POST /{ig-user}/media  media_type=REELS and either
+//        video_url=<public URL> (public repo: Instagram fetches the release
+//        asset itself; works with a Page token), or
+//        upload_type=resumable → {id, uri}, then POST {uri}
+//        (rupload.facebook.com, Authorization: OAuth <token>, offset, file_size)
+//   2. GET  /{container}?fields=status_code  until FINISHED
+//   3. POST /{ig-user}/media_publish  creation_id → media id → permalink
+// Seen live (2026-11-22): with a Page token the rupload step answered
+// HTTP 400 ProcessingFailedError, so video_url is used whenever it can be.
 // Images need a public URL (image_url), which a run doesn't have, so an
 // update without a video is skipped.
 //
@@ -65,6 +70,22 @@ function explain(err: unknown): Error {
 
 const auth = () => ({ Authorization: `Bearer ${token()}` });
 
+/**
+ * GitHub's release download link redirects to a short-lived signed URL.
+ * Hand Instagram that final URL, fetched right before it downloads.
+ */
+async function resolveRedirect(url: string | undefined): Promise<string> {
+  if (!url) return "";
+  try {
+    const res = await fetch(url, { method: "HEAD", redirect: "manual" });
+    const location = res.headers.get("location");
+    if (res.status >= 300 && res.status < 400 && location) return new URL(location, url).toString();
+    return res.ok ? url : "";
+  } catch {
+    return url;
+  }
+}
+
 export async function preflight(): Promise<string> {
   try {
     const info = await requestJson<{ username?: string }>(
@@ -95,35 +116,50 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
   const user = encodeURIComponent(env("IG_USER_ID"));
 
   try {
-    // 1. Container for a resumable upload.
-    const container = await requestJson<{ id: string; uri: string }>(`${graph()}/${user}/media`, {
-      method: "POST",
-      headers: auth(),
-      body: new URLSearchParams({
-        media_type: "REELS",
-        upload_type: "resumable",
-        caption,
-        share_to_feed: "true",
-      }),
-      label: "Instagram container",
-      retries: 1,
-    });
+    const videoUrl = await resolveRedirect(media.videoUrl);
+    let container: { id: string; uri?: string };
+    if (videoUrl) {
+      // 1a. Instagram downloads the public video itself.
+      container = await requestJson<{ id: string }>(`${graph()}/${user}/media`, {
+        method: "POST",
+        headers: auth(),
+        body: new URLSearchParams({ media_type: "REELS", video_url: videoUrl, caption, share_to_feed: "true" }),
+        label: "Instagram container",
+        retries: 1,
+      });
+    } else {
+      // 1b. No public URL (private repo): resumable upload of the local file.
+      container = await requestJson<{ id: string; uri: string }>(`${graph()}/${user}/media`, {
+        method: "POST",
+        headers: auth(),
+        body: new URLSearchParams({ media_type: "REELS", upload_type: "resumable", caption, share_to_feed: "true" }),
+        label: "Instagram container",
+        retries: 1,
+      });
+      try {
+        await requestJson<{ success?: boolean }>(container.uri ?? "", {
+          method: "POST",
+          headers: {
+            Authorization: `OAuth ${token()}`,
+            offset: "0",
+            file_size: String(size),
+            "Content-Type": "application/octet-stream",
+          },
+          body: await openAsBlob(file),
+          label: "Instagram upload",
+          retries: 1,
+        });
+      } catch (err) {
+        if (err instanceof HttpError && /ProcessingFailed/i.test(err.body)) {
+          throw new Error(
+            "Instagram refused the direct upload (ProcessingFailedError). It can fetch the video from a public URL instead: attach the .mp4 to the GitHub Release of a public repo.",
+          );
+        }
+        throw err;
+      }
+    }
 
-    // 2. The video bytes.
-    await requestJson<{ success?: boolean }>(container.uri, {
-      method: "POST",
-      headers: {
-        Authorization: `OAuth ${token()}`,
-        offset: "0",
-        file_size: String(size),
-        "Content-Type": "application/octet-stream",
-      },
-      body: await openAsBlob(file),
-      label: "Instagram upload",
-      retries: 1,
-    });
-
-    // 3. Instagram processes the video; it can be published once FINISHED.
+    // 2. Instagram processes the video; it can be published once FINISHED.
     const deadline = Date.now() + Number(env("IG_STATUS_TIMEOUT_MS", "600000"));
     const interval = Number(env("IG_STATUS_INTERVAL_MS", "20000"));
     let status = { status_code: "IN_PROGRESS", status: "" };
@@ -142,7 +178,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
       throw new Error("Instagram: the video was still processing after 10 minutes; re-run the job to try again.");
     }
 
-    // 4. Publish, then read the public link.
+    // 3. Publish, then read the public link.
     const published = await requestJson<{ id: string }>(`${graph()}/${user}/media_publish`, {
       method: "POST",
       headers: auth(),

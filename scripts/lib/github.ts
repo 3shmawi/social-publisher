@@ -15,6 +15,8 @@ export interface ReleaseAsset {
   size: number;
   content_type: string;
   url: string;
+  /** Public download link (works without a token only in a public repo). */
+  browser_download_url?: string;
 }
 
 export interface Release {

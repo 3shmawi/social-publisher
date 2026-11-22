@@ -56,6 +56,11 @@ describe("publish a Reel", () => {
         };
         const port = (server.address() as { port: number }).port;
         if (url === "/v24.0/1784/media") return json({ id: "c1", uri: `http://127.0.0.1:${port}/ig-api-upload/v24.0/c1` });
+        if (url === "/release/video.mp4") {
+          res.statusCode = 302;
+          res.setHeader("Location", `http://127.0.0.1:${port}/signed/video.mp4?sig=abc`);
+          return res.end();
+        }
         if (url.startsWith("/ig-api-upload/")) return json({ success: true, message: "Upload successful." });
         if (url.startsWith("/v24.0/c1?")) return json({ status_code: ++polls < 2 ? "IN_PROGRESS" : "FINISHED", id: "c1" });
         if (url === "/v24.0/1784/media_publish") return json({ id: "m9" });
@@ -109,6 +114,29 @@ describe("publish a Reel", () => {
 
     expect(polls).toBe(2);
     expect(new URLSearchParams(calls.find((c) => c.url.endsWith("/media_publish"))?.body).get("creation_id")).toBe("c1");
+  });
+
+  it("lets Instagram fetch a public video (signed URL) instead of uploading it", async () => {
+    calls.length = 0;
+    const port = (server.address() as { port: number }).port;
+    const dir = mkdtempSync(path.join(tmpdir(), "ig-test-"));
+    writeFileSync(path.join(dir, "video.mp4"), Buffer.alloc(1024, 7));
+    const media: Media = {
+      video: "video.mp4",
+      videoSource: "release asset demo.mp4",
+      videoUrl: `http://127.0.0.1:${port}/release/video.mp4`,
+      image: "",
+      imageSource: "",
+    };
+    const posts = { instagram: "Reel", perLanguage: [] } as unknown as Posts;
+
+    const result = await publish({ app } as Context, posts, media, dir);
+
+    expect(result.status).toBe("posted");
+    const container = new URLSearchParams(calls.find((c) => c.url === "/v24.0/1784/media")?.body);
+    expect(container.get("video_url")).toBe(`http://127.0.0.1:${port}/signed/video.mp4?sig=abc`);
+    expect(container.get("upload_type")).toBeNull();
+    expect(calls.some((c) => c.url.startsWith("/ig-api-upload/"))).toBe(false);
   });
 
   it("skips an update without a video", async () => {
