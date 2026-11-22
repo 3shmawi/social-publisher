@@ -8,6 +8,7 @@ import { writeFileSync } from "node:fs";
 import { z } from "zod";
 import {
   buildFacebook,
+  buildInstagram,
   buildLinkedIn,
   buildYouTube,
   type Context,
@@ -305,6 +306,7 @@ async function main(): Promise<void> {
     perLanguage,
     linkedin: buildLinkedIn(perLanguage, ctx.app),
     facebook: buildFacebook(perLanguage, ctx.app),
+    instagram: buildInstagram(perLanguage, ctx.app),
     youtube: buildYouTube(perLanguage, ctx.app, ctx.releaseUrl),
   };
   writeJson(outPath("posts.json"), posts);

@@ -5,8 +5,10 @@
 //
 // Needs your Meta app's App ID and App Secret (App settings → Basic) and a
 // User token with pages_show_list, pages_read_engagement, pages_manage_posts
-// (README → "Facebook Page", step 3). Prints FB_PAGE_ID and FB_PAGE_TOKEN for
-// each Page you manage. You can pass FB_APP_ID / FB_APP_SECRET / FB_USER_TOKEN as env vars.
+// (README → "Facebook Page", step 3), plus instagram_basic and
+// instagram_content_publish for Instagram. Prints FB_PAGE_ID and
+// FB_PAGE_TOKEN for each Page you manage, and IG_USER_ID when the Page has a
+// linked Instagram professional account. You can pass FB_APP_ID / FB_APP_SECRET / FB_USER_TOKEN as env vars.
 import { ask, netFetch } from "./lib/oauth-local.ts";
 
 const VERSION = process.env.FB_GRAPH_VERSION ?? "v24.0";
@@ -32,10 +34,16 @@ async function main(): Promise<void> {
   });
 
   // 2. Page tokens fetched with a long-lived user token don't expire.
-  type Page = { id: string; name: string; access_token?: string; tasks?: string[] };
+  type Page = {
+    id: string;
+    name: string;
+    access_token?: string;
+    tasks?: string[];
+    instagram_business_account?: { id: string };
+  };
   const token = long.access_token;
   const pages: Page[] = (
-    await graph<{ data: Page[] }>("me/accounts", { access_token: token, fields: "id,name,access_token,tasks" })
+    await graph<{ data: Page[] }>("me/accounts", { access_token: token, fields: "id,name,access_token,tasks,instagram_business_account" })
   ).data;
 
   // Pages run from a business portfolio (Meta Business Suite) or the new
@@ -62,7 +70,7 @@ async function main(): Promise<void> {
     for (const id of ids) {
       try {
         // `tasks` only exists on the me/accounts edge; the Page itself 400s on it.
-        pages.push(await graph<Page>(id, { access_token: token, fields: "id,name,access_token" }));
+        pages.push(await graph<Page>(id, { access_token: token, fields: "id,name,access_token,instagram_business_account" }));
       } catch (err) {
         console.log(`  Page ${id}: ${(err as Error).message}`);
       }
@@ -90,11 +98,22 @@ async function main(): Promise<void> {
     console.log(`\n${page.name}  (expires: ${expires})`);
     console.log(`FB_PAGE_ID=${page.id}`);
     console.log(`FB_PAGE_TOKEN=${page.access_token}`);
+    if (page.instagram_business_account) {
+      console.log(`IG_USER_ID=${page.instagram_business_account.id}`);
+    } else {
+      console.log("  (no Instagram professional account linked to this Page: no IG_USER_ID)");
+    }
     if (page.tasks && !page.tasks.includes("CREATE_CONTENT")) {
       console.log("  ⚠ You can't create content on this Page with this account.");
     }
   }
-  console.log("\nStore the two values of your Page as secrets in each app repo. Don't share the token.");
+  const perms = await graph<{ data: { permission: string; status: string }[] }>("me/permissions", { access_token: token });
+  const granted = new Set(perms.data.filter((p) => p.status === "granted").map((p) => p.permission));
+  const igMissing = ["instagram_basic", "instagram_content_publish"].filter((p) => !granted.has(p));
+  if (igMissing.length) {
+    console.log(`\n⚠ For Instagram, the token also needs ${igMissing.join(" and ")}: add them in the Graph API Explorer and run this again.`);
+  }
+  console.log("\nStore these values as secrets in each app repo. Don't share the token.");
 }
 
 main().catch((err: Error) => {

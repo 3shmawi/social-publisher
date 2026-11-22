@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   const pushedTag = eventName === "push" && env("GITHUB_REF").startsWith("refs/tags/") ? env("GITHUB_REF_NAME") : "";
   const requestedTag = pushedTag || env("RELEASE_TAG");
   const force = envBool("FORCE");
-  const platforms = envList("PLATFORMS", "facebook,linkedin,youtube,tiktok");
+  const platforms = envList("PLATFORMS", "facebook,instagram,linkedin,youtube,tiktok");
   const languages = envList("LANGUAGES", "en");
 
   const ctx: Context = {

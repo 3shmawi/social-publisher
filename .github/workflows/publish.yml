@@ -1,11 +1,13 @@
 # Reusable workflow: announce an app update on LinkedIn, a Facebook Page,
-# YouTube and TikTok (the video lands in your TikTok inbox as a draft). Called from each app repo by a small .github/workflows/social.yml
+# Instagram (a Reel), YouTube and TikTok (the video lands in your TikTok
+# inbox as a draft). Called from each app repo by a small .github/workflows/social.yml
 # (examples/social.yml). README.md has the full setup.
 #
 # Posts are written by Claude Code on your Claude plan (CLAUDE_CODE_OAUTH_TOKEN),
 # the API (ANTHROPIC_API_KEY) or, with neither, fixed templates (no AI).
 #
 #   generate ─► approve (environment "social": you review the posts) ─┬─► facebook ─┐
+#                                                                     ├─► instagram┤
 #   (collect, write posts with Claude, find video,                    ├─► linkedin ─┤
 #    check credentials; job summary = review page)                    ├─► youtube  ─┼─► summary
 #                                                                     └─► tiktok   ─┘
@@ -41,9 +43,9 @@ on:
         type: string
         default: ''
       platforms:
-        description: Comma-separated subset of facebook,linkedin,youtube,tiktok
+        description: Comma-separated subset of facebook,instagram,linkedin,youtube,tiktok
         type: string
-        default: facebook,linkedin,youtube,tiktok
+        default: facebook,instagram,linkedin,youtube,tiktok
       languages:
         description: Comma-separated language codes, first is the main one (en,ar)
         type: string
@@ -125,6 +127,10 @@ on:
       FB_PAGE_ID:
         required: false
       FB_PAGE_TOKEN:
+        description: Long-lived Page token; for Instagram it also needs instagram_basic and instagram_content_publish
+        required: false
+      IG_USER_ID:
+        description: The Instagram professional account linked to the Page (17841…)
         required: false
       LINKEDIN_TOKEN:
         required: false
@@ -244,6 +250,7 @@ jobs:
           FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
           FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           FB_GRAPH_VERSION: ${{ inputs.facebook_graph_version }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
           LINKEDIN_AS: ${{ inputs.linkedin_as }}
           LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
           LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
@@ -335,6 +342,46 @@ jobs:
         if: always()
         with:
           name: social-result-facebook
+          path: out/results
+          if-no-files-found: ignore
+
+  instagram:
+    name: Instagram
+    needs: [generate, approve]
+    if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'instagram') }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write   # tag social/posted/<key>/instagram
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SOCIAL_OUT: ${{ github.workspace }}/out
+      DRY_RUN: ${{ inputs.dry_run }}
+      FORCE: ${{ inputs.force }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: publisher
+          persist-credentials: false
+      - uses: ./publisher/.github/actions/setup # zizmor: ignore[self-repository] publisher/ is this repo, checked out above at job.workflow_sha; ./ would be the app repo
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: social-posts
+          path: out
+      - name: Post the Reel
+        working-directory: publisher
+        env:
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          FB_GRAPH_VERSION: ${{ inputs.facebook_graph_version }}
+        run: npx tsx scripts/post.ts instagram
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: social-result-instagram
           path: out/results
           if-no-files-found: ignore
 
@@ -496,7 +543,7 @@ jobs:
 
   summary:
     name: Summary
-    needs: [generate, approve, facebook, linkedin, youtube, tiktok]
+    needs: [generate, approve, facebook, instagram, linkedin, youtube, tiktok]
     if: ${{ always() && needs.generate.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
