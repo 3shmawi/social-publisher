@@ -486,8 +486,6 @@ jobs:
       SOCIAL_OUT: ${{ github.workspace }}/out
       DRY_RUN: ${{ inputs.dry_run }}
       FORCE: ${{ inputs.force }}
-      # Outside out/ (which is uploaded): TikTok's new refresh token.
-      TIKTOK_NEW_TOKEN_FILE: ${{ runner.temp }}/tiktok-refresh-token
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -507,6 +505,9 @@ jobs:
           TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
           TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
           SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}
+          # Outside out/ (which is uploaded): TikTok's new refresh token.
+          # (runner.* is only allowed in step env, not job env.)
+          TIKTOK_NEW_TOKEN_FILE: ${{ runner.temp }}/tiktok-refresh-token
         run: npx tsx scripts/post.ts tiktok
       # TikTok replaced the refresh token: save the new one, even if the
       # upload failed after the refresh, or the next run can't sign in.
@@ -515,6 +516,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}
           REPOS: ${{ inputs.tiktok_token_repos || github.repository }}
+          TIKTOK_NEW_TOKEN_FILE: ${{ runner.temp }}/tiktok-refresh-token
         run: |
           if [ ! -s "$TIKTOK_NEW_TOKEN_FILE" ]; then
             echo "No token refresh happened; nothing to save."
