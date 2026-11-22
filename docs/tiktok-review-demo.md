@@ -54,6 +54,6 @@ Trim the waiting parts; keep each scope's moment visible for a few seconds.
 - **Data:** the refresh token is kept as an encrypted GitHub Actions secret;
   no TikTok user data is stored. Privacy policy: `…/privacy.html`.
 
-After approval: run step 3 of README → 3b again with the **production**
+After approval: run step 3 of [tiktok.md](tiktok.md) again with the **production**
 Client key and secret and store those secrets (the sandbox ones stop being
 used).

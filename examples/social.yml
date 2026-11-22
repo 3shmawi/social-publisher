@@ -1,5 +1,5 @@
 # Copy to .github/workflows/social.yml in an app repo and change the `with:`
-# values. README.md → "Add it to an app repo" lists the secrets and the
+# values. docs/app-repo.md lists the secrets and the
 # `social` environment this needs.
 #
 # What runs when:

@@ -53,7 +53,7 @@ async function main(): Promise<void> {
     const protectedEnv = await environmentHasReviewers(environment);
     if (protectedEnv === false) {
       approvalError = (
-        `The "${environment}" environment has no required reviewers, so posts would go out without your approval. Settings → Environments → ${environment} → Required reviewers → add yourself (README → "Add it to an app repo", step 3). To post without approval on purpose, set require_approval: false.`
+        `The "${environment}" environment has no required reviewers, so posts would go out without your approval. Settings → Environments → ${environment} → Required reviewers → add yourself (docs/app-repo.md, step 3). To post without approval on purpose, set require_approval: false.`
       );
       notes.push(`❌ ${approvalError}`);
     }
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
 
   if (enabled.includes("youtube") && env("YT_AUDITED").toLowerCase() !== "true") {
     notes.push(
-      "> **YouTube:** until your Google Cloud project passes YouTube's API audit, uploaded videos stay **private**. Make them public in YouTube Studio, or see README → YouTube → audit.",
+      "> **YouTube:** until your Google Cloud project passes YouTube's API audit, uploaded videos stay **private**. Make them public in YouTube Studio, or see docs/youtube.md, step 6.",
     );
   }
   summary(["## 🔑 Credentials", "", ...rows, "", ...notes].join("\n"));

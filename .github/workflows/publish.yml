@@ -1,7 +1,7 @@
 # Reusable workflow: announce an app update on LinkedIn, a Facebook Page,
 # Instagram (a Reel), YouTube and TikTok (the video lands in your TikTok
 # inbox as a draft). Called from each app repo by a small .github/workflows/social.yml
-# (examples/social.yml). README.md has the full setup.
+# (examples/social.yml). docs/ has the full setup (docs/app-repo.md).
 #
 # Posts are written by Claude Code on your Claude plan (CLAUDE_CODE_OAUTH_TOKEN),
 # the API (ANTHROPIC_API_KEY) or, with neither, fixed templates (no AI).
