@@ -128,7 +128,10 @@ The release video is published as a **Reel** on the Instagram professional
 account linked to your Facebook Page, with the Facebook text and hashtags as
 the caption (links can't be clicked in captions but stay copyable). It uses
 the same Meta app and Page token as Facebook. An update without a video is
-skipped: Instagram can only take images from a public URL.
+skipped: Instagram can only take images from a public URL. In a **public**
+repo, Instagram downloads the video from the release asset (or
+`marketing/videos/<tag>.mp4`) itself; in a private repo the job uploads the
+file, which Meta may refuse with a Page token (`ProcessingFailedError`).
 
 1. **Link the accounts.** The Instagram account must be **professional**
    (Business or Creator: Instagram → Settings → Account type and tools) and

@@ -65,6 +65,8 @@ export interface Posts {
 export interface Media {
   video: string;
   videoSource: string;
+  /** A public URL of the same video, when there is one (Instagram fetches it). */
+  videoUrl?: string;
   image: string;
   imageSource: string;
 }

@@ -10,6 +10,17 @@ import { downloadAsset, getRelease } from "./lib/github.ts";
 
 const APP_DIR = env("APP_DIR", ".");
 
+/** The URL if anyone can download it (a public repo), else "". No token is sent. */
+async function publicUrl(url: string | undefined): Promise<string> {
+  if (!url) return "";
+  try {
+    const res = await fetch(url, { method: "HEAD", redirect: "follow" });
+    return res.ok ? url : "";
+  } catch {
+    return "";
+  }
+}
+
 async function main(): Promise<void> {
   const ctx = readJson<Context>(outPath("context.json"));
   const media: Media = { video: "", videoSource: "", image: "", imageSource: "" };
@@ -24,12 +35,18 @@ async function main(): Promise<void> {
     media.video = path.join(dir, "video.mp4");
     await downloadAsset(video, media.video);
     media.videoSource = `release asset ${video.name}`;
+    media.videoUrl = await publicUrl(video.browser_download_url);
   } else if (ctx.tag) {
     const file = path.join(APP_DIR, "marketing", "videos", `${ctx.tag}.mp4`);
     if (existsSync(file)) {
       media.video = path.join(dir, "video.mp4");
       copyFileSync(file, media.video);
       media.videoSource = `marketing/videos/${ctx.tag}.mp4`;
+      if (ctx.sha && ctx.repo) {
+        media.videoUrl = await publicUrl(
+          `https://raw.githubusercontent.com/${ctx.repo}/${ctx.sha}/marketing/videos/${encodeURIComponent(ctx.tag)}.mp4`,
+        );
+      }
     }
   }
 
