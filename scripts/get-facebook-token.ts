@@ -5,7 +5,7 @@
 //
 // Needs your Meta app's App ID and App Secret (App settings → Basic) and a
 // User token with pages_show_list, pages_read_engagement, pages_manage_posts
-// (README → "Facebook Page", step 3), plus instagram_basic and
+// (docs/facebook.md, step 3), plus instagram_basic and
 // instagram_content_publish for Instagram. Prints FB_PAGE_ID and
 // FB_PAGE_TOKEN for each Page you manage, and IG_USER_ID when the Page has a
 // linked Instagram professional account. You can pass FB_APP_ID / FB_APP_SECRET / FB_USER_TOKEN as env vars.

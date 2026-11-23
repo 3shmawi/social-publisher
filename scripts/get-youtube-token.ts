@@ -3,7 +3,7 @@
 //   npx tsx scripts/get-youtube-token.ts
 //
 // Asks for the OAuth client ID and secret of a "Desktop app" OAuth client
-// (README → "YouTube", step 3), opens Google's consent page, and prints the
+// (docs/youtube.md, step 3), opens Google's consent page, and prints the
 // refresh token to store as the YT_REFRESH_TOKEN secret. Sign in with the
 // Google account that owns the YouTube channel (or a Brand Account manager:
 // pick the channel when Google asks).
@@ -59,7 +59,7 @@ async function main(): Promise<void> {
   console.log("\nStore this as the YT_REFRESH_TOKEN secret (gh secret set YT_REFRESH_TOKEN --repo <owner>/<app>):\n");
   console.log(data.refresh_token);
   console.log(
-    '\nIf your OAuth consent screen is still in "Testing", this token stops working after 7 days. Publish the app first (README → "YouTube", step 4).',
+    '\nIf your OAuth consent screen is still in "Testing", this token stops working after 7 days. Publish the app first (docs/youtube.md, step 4).',
   );
 }
 

@@ -56,11 +56,11 @@ function explain(err: unknown): Error {
   }
   if (code === 10 || code === 200 || err.status === 403) {
     return new Error(
-      `Instagram: the token lacks a permission (${message}). Make a new Page token with instagram_basic and instagram_content_publish added (README → "Instagram"), and set FB_PAGE_TOKEN.`,
+      `Instagram: the token lacks a permission (${message}). Make a new Page token with instagram_basic and instagram_content_publish added (docs/instagram.md), and set FB_PAGE_TOKEN.`,
     );
   }
   if (code === 100 && /IG|instagram|user/i.test(message)) {
-    return new Error(`Instagram: ${message}. Check IG_USER_ID (README → "Instagram", step 2).`);
+    return new Error(`Instagram: ${message}. Check IG_USER_ID (docs/instagram.md, step 2).`);
   }
   if (code === 9 || code === 4) {
     return new Error(`Instagram: rate limit (${message}). Re-run the job later.`);

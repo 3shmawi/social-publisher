@@ -4,7 +4,7 @@
 // Until your Google Cloud project passes YouTube's API audit, every video it
 // uploads is locked to private, whatever privacy you ask for. And while the
 // OAuth consent screen is in "Testing", refresh tokens die after 7 days.
-// README → "YouTube" explains both.
+// docs/youtube.md explains both.
 import { open, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Media, PlatformResult, Posts } from "../lib/content.ts";
@@ -45,7 +45,7 @@ async function accessToken(): Promise<string> {
   } catch (err) {
     if (err instanceof HttpError && /invalid_grant/.test(err.body)) {
       throw new Error(
-        'YouTube: YT_REFRESH_TOKEN was rejected (invalid_grant). If the OAuth consent screen is still in "Testing", refresh tokens expire after 7 days: publish the app (README → "YouTube", step 4) and make a new token with scripts/get-youtube-token.ts.',
+        'YouTube: YT_REFRESH_TOKEN was rejected (invalid_grant). If the OAuth consent screen is still in "Testing", refresh tokens expire after 7 days: publish the app (docs/youtube.md, step 4) and make a new token with scripts/get-youtube-token.ts.',
       );
     }
     if (err instanceof HttpError && /invalid_client/.test(err.body)) {
@@ -122,7 +122,7 @@ export async function publish(posts: Posts, media: Media, outDir: string): Promi
   let detail = `Uploaded ${(size / 1048576).toFixed(1)} MB as ${actual}.`;
   if (!audited) {
     detail +=
-      " Videos from a Google Cloud project that hasn't passed YouTube's API audit stay private (locked) until you make them public in YouTube Studio, or until the audit passes (README → \"YouTube\" → audit).";
+      " Videos from a Google Cloud project that hasn't passed YouTube's API audit stay private (locked) until you make them public in YouTube Studio, or until the audit passes (docs/youtube.md, step 6).";
   }
   return {
     platform: "youtube",

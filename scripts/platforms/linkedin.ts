@@ -19,7 +19,7 @@ import { env, mask, warning } from "../lib/env.ts";
 import { HttpError, request, requestJson, truncate } from "../lib/http.ts";
 
 const REFRESH_HELP =
-  'Make a new token: README → "LinkedIn", step 5 (or run scripts/get-linkedin-token.ts), then update the LINKEDIN_TOKEN secret.';
+  'Make a new token: docs/linkedin.md, step 5 (or run scripts/get-linkedin-token.ts), then update the LINKEDIN_TOKEN secret.';
 
 export type Target = { kind: "person" | "organization"; urn: string; scope: string };
 

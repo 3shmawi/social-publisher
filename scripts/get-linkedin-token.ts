@@ -89,7 +89,7 @@ async function main(): Promise<void> {
       const urns = (data.elements ?? []).map((e) => e.organization).filter(Boolean);
       console.log(`LINKEDIN_ORG_URN (pages you administer):\n${urns.join("\n") || "none found"}\n`);
     } else {
-      console.log("Couldn't list your pages; find LINKEDIN_ORG_URN as README → LinkedIn, step 6 describes.\n");
+      console.log("Couldn't list your pages; find LINKEDIN_ORG_URN as docs/linkedin.md, step 6 describes.\n");
     }
   }
 }

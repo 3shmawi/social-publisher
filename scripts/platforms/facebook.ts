@@ -28,7 +28,7 @@ function explain(err: unknown): Error {
   }
   if (code === 190) {
     return new Error(
-      `Facebook: FB_PAGE_TOKEN is expired or was revoked (${message}). Make a new long-lived Page token: README → "Facebook Page", step 4, or run scripts/get-facebook-token.ts.`,
+      `Facebook: FB_PAGE_TOKEN is expired or was revoked (${message}). Make a new long-lived Page token: docs/facebook.md, step 4, or run scripts/get-facebook-token.ts.`,
     );
   }
   if (code === 10 || code === 200 || err.status === 403) {
