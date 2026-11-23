@@ -12,7 +12,7 @@ Inputs, what gets posted when, languages, media, state and security.
 | `about` | | One or two sentences about the app and its users; helps the writing |
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
-| `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset |
+| `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset; also the opt-in `threads` |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
 | `linkedin_as` | `person` | `person`, `organization` or `both` |
 | `linkedin_version` | `202609` | `LinkedIn-Version` header |

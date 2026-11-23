@@ -2,7 +2,7 @@
 // was posted, moves the tag social/last-post to this update's commit, so the
 // next scheduled run only looks at newer changes.
 import { existsSync, readdirSync } from "node:fs";
-import type { Context, PlatformResult } from "./lib/content.ts";
+import { ALL_PLATFORMS, type Context, DEFAULT_PLATFORMS, type PlatformResult } from "./lib/content.ts";
 import { envBool, envList, outPath, readJson, readJsonIfExists, run, summary, warning } from "./lib/env.ts";
 import { LAST_POST_REF, putRef } from "./lib/github.ts";
 
@@ -16,7 +16,7 @@ const ICON: Record<PlatformResult["status"], string> = {
 async function main(): Promise<void> {
   const ctx = readJsonIfExists<Context>(outPath("context.json"));
   const dryRun = envBool("DRY_RUN", true);
-  const enabled = envList("PLATFORMS", "facebook,instagram,linkedin,youtube,tiktok");
+  const enabled = envList("PLATFORMS", DEFAULT_PLATFORMS);
   const dir = outPath("results");
   const results = new Map<string, PlatformResult>();
   if (existsSync(dir)) {
@@ -27,8 +27,10 @@ async function main(): Promise<void> {
   }
 
   const rows = ["| Platform | Result | Links |", "|---|---|---|"];
-  for (const platform of ["facebook", "instagram", "linkedin", "youtube", "tiktok"]) {
+  for (const platform of ALL_PLATFORMS) {
     const r = results.get(platform);
+    // Opt-in platforms (Threads, Bluesky, …) only show once they're on.
+    if (!enabled.includes(platform) && !DEFAULT_PLATFORMS.includes(platform)) continue;
     if (!enabled.includes(platform)) {
       rows.push(`| ${platform} | ⏭️ turned off | |`);
     } else if (!r) {

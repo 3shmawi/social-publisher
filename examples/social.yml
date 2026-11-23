@@ -56,7 +56,7 @@ jobs:
       website_url: https://cafe.example.com
       languages: en,ar
       linkedin_as: both            # person, organization or both
-      platforms: facebook,instagram,linkedin,youtube,tiktok
+      platforms: facebook,instagram,linkedin,youtube,tiktok   # + threads (opt-in)
       # tiktok_token_repos: me/app1,me/app2   # repos sharing the TikTok account (default: this one)
       hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
@@ -81,3 +81,5 @@ jobs:
       TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
       TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
       SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}   # saves TikTok's rotated token
+      THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}   # opt-in platforms: docs/threads.md
+      THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}

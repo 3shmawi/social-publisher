@@ -11,6 +11,7 @@ repo. Each platform guide ends with the exact secrets it produces.
 | [LinkedIn](linkedin.md) | posts with the video, as you and/or a company page | `LINKEDIN_TOKEN`, `LINKEDIN_AUTHOR_URN`, `LINKEDIN_ORG_URN`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REFRESH_TOKEN` |
 | [YouTube](youtube.md) | the video uploaded (Shorts when vertical) | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
 | [TikTok](tiktok.md) | the video as a draft in your TikTok inbox | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN`, `SOCIAL_SECRETS_TOKEN` |
+| [Threads](threads.md) (opt-in) | text posts, or the video when it's public | `THREADS_USER_ID`, `THREADS_TOKEN` |
 | [TikTok review video](tiktok-review-demo.md) | shot list for TikTok's app review | |
 | **[Add it to an app repo](app-repo.md)** | all secrets in one table, the `social` environment, variables, dry run, going live | |
 | [Reference](reference.md) | inputs, what gets posted when, media, state, security | |

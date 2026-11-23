@@ -2,7 +2,7 @@
 // Writes out/context.json and the outputs `skip` and `key`.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { type Context, hasSkipMarker, isoWeek, onlyInternalChanges } from "./lib/content.ts";
+import { type Context, DEFAULT_PLATFORMS, hasSkipMarker, isoWeek, onlyInternalChanges } from "./lib/content.ts";
 import { channels } from "./lib/channels.ts";
 import { env, envBool, envList, notice, outPath, run, setOutput, summary, writeJson } from "./lib/env.ts";
 import { getLatestRelease, getRelease, mergedPullRequestsSince, postedRef, type Release, refExists } from "./lib/github.ts";
@@ -39,7 +39,7 @@ async function main(): Promise<void> {
   const pushedTag = eventName === "push" && env("GITHUB_REF").startsWith("refs/tags/") ? env("GITHUB_REF_NAME") : "";
   const requestedTag = pushedTag || env("RELEASE_TAG");
   const force = envBool("FORCE");
-  const platforms = envList("PLATFORMS", "facebook,instagram,linkedin,youtube,tiktok");
+  const platforms = envList("PLATFORMS", DEFAULT_PLATFORMS);
   const languages = envList("LANGUAGES", "en");
 
   const ctx: Context = {

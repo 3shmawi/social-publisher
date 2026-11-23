@@ -19,6 +19,7 @@ in the summary), never failed.
 | LinkedIn | [linkedin.md](linkedin.md) | 15 min (+ a few days for the company-page API review) |
 | YouTube | [youtube.md](youtube.md) | 20 min (+ weeks for the audit, for public videos) |
 | TikTok | [tiktok.md](tiktok.md) | 30 min (+ TikTok's app review) |
+| Threads (opt-in) | [threads.md](threads.md) | 10 min |
 
 The token helpers run on your own computer (Node 22+):
 
@@ -50,7 +51,9 @@ secrets; a GitHub organization can hold them once as organization secrets).
 | `TIKTOK_CLIENT_KEY` | TikTok | yes | TikTok app ([tiktok.md](tiktok.md)) |
 | `TIKTOK_CLIENT_SECRET` | TikTok | yes | TikTok app |
 | `TIKTOK_REFRESH_TOKEN` | TikTok | yes (first time) | `get-tiktok-token.ts`; the workflow replaces it after every run |
-| `SOCIAL_SECRETS_TOKEN` | TikTok | yes | fine-grained GitHub token, *Secrets: Read and write* on your app repos |
+| `SOCIAL_SECRETS_TOKEN` | TikTok, Threads | yes (TikTok) | fine-grained GitHub token, *Secrets: Read and write* on your app repos |
+| `THREADS_USER_ID` | Threads | yes | `get-threads-token.ts` ([threads.md](threads.md)) |
+| `THREADS_TOKEN` | Threads | yes | `get-threads-token.ts`; the weekly check refreshes it |
 
 \* or `LINKEDIN_REFRESH_TOKEN` with the client ID and secret.
 
