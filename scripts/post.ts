@@ -41,7 +41,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
         continue;
       }
       try {
-        links.push(await linkedin.publish(posts, target, media, out));
+        links.push(await linkedin.publish(posts, target, media, out, ctx));
         await markPosted(ctx.key, channel, ctx.sha);
       } catch (err) {
         failures.push((err as Error).message);
@@ -56,7 +56,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     return {
       platform,
       status: "posted",
-      detail: `Posted${media.video ? " with the video" : ""} as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`,
+      detail: `Posted${media.video ? " with the video" : (media.images?.length ?? 0) > 1 ? " with the images" : media.image ? " with the image" : ""} as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`,
       links,
     };
   }

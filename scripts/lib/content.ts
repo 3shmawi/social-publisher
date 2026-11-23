@@ -76,6 +76,22 @@ export interface Media {
   imageSource: string;
   /** Describes the image for screen readers (Bluesky, LinkedIn, X, Instagram). */
   imageAlt?: string;
+  /** Every image, in order (2–10 make a carousel); [image] is the first. */
+  images?: string[];
+  /** Public URLs of [images] ("" where there is none). */
+  imageUrls?: string[];
+  /** Alt text of each image ("" → a default from the app and headline). */
+  imageAlts?: string[];
+}
+
+/**
+ * Alt text for image [index]: the release asset's label (or a sidecar
+ * .txt in marketing/images/), else "<app>: <headline>".
+ */
+export function imageAlt(media: Media, index: number, ctx: Pick<Context, "app" | "title">, posts: Pick<Posts, "headline">): string {
+  const given = media.imageAlts?.[index] || (index === 0 ? media.imageAlt : "");
+  const fallback = `${ctx.app.name}: ${posts.headline || ctx.title || "screenshot"}`;
+  return clampChars(given || fallback, 1000);
 }
 
 /** Every platform, in the order jobs and the summary list them. */

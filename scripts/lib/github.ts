@@ -17,6 +17,8 @@ export interface ReleaseAsset {
   url: string;
   /** Public download link (works without a token only in a public repo). */
   browser_download_url?: string;
+  /** The asset's label on the release page; used as an image's alt text. */
+  label?: string | null;
 }
 
 export interface Release {

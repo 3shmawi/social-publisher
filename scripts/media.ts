@@ -1,8 +1,9 @@
-// Step 3: find the video (and an image) for this update, in this order:
-//   1. a release asset matching *.mp4 (images: *.png / *.jpg)
-//   2. marketing/videos/<tag>.mp4 in the app repo (images: marketing/images/<tag>.png|jpg)
+// Step 3: find the video and images for this update, in this order:
+//   1. release assets: *.mp4, and *.png / *.jpg (up to 10: a carousel)
+//   2. marketing/videos/<tag>.mp4 in the app repo; images from
+//      marketing/images/<tag>/ (a folder) or marketing/images/<tag>.png|jpg
 // Copies them to out/media/. No video → YouTube is skipped, nothing fails.
-import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Context, Media } from "./lib/content.ts";
 import { env, envBool, notice, outPath, readJson, run, setOutput, warning, writeJson } from "./lib/env.ts";
@@ -51,21 +52,59 @@ async function main(): Promise<void> {
     }
   }
 
-  const image = assets.find((a) => /\.(png|jpe?g)$/i.test(a.name));
-  if (image) {
-    media.image = path.join(dir, `image${path.extname(image.name).toLowerCase()}`);
-    await downloadAsset(image, media.image);
-    media.imageSource = `release asset ${image.name}`;
-  } else if (ctx.tag) {
-    for (const ext of [".png", ".jpg", ".jpeg"]) {
-      const file = path.join(APP_DIR, "marketing", "images", `${ctx.tag}${ext}`);
-      if (existsSync(file)) {
-        media.image = path.join(dir, `image${ext}`);
-        copyFileSync(file, media.image);
-        media.imageSource = `marketing/images/${ctx.tag}${ext}`;
+  // Images (a carousel when there are several; never the thumbnail):
+  //   1. every *.png / *.jpg release asset — alt text = the asset's label
+  //   2. marketing/images/<tag>/ (a folder) — alt text = <name>.txt next to it
+  //   3. marketing/images/<tag>.png|jpg
+  const isImage = (name: string) => /\.(png|jpe?g)$/i.test(name) && !/thumb/i.test(name);
+  const found: { file: string; source: string; url: string; alt: string }[] = [];
+  const imageAssets = assets.filter((a) => isImage(a.name)).sort((a, b) => a.name.localeCompare(b.name)).slice(0, 10);
+  for (const [i, asset] of imageAssets.entries()) {
+    const file = path.join(dir, `image-${i + 1}${path.extname(asset.name).toLowerCase()}`);
+    await downloadAsset(asset, file);
+    found.push({ file, source: `release asset ${asset.name}`, url: await publicUrl(asset.browser_download_url), alt: asset.label ?? "" });
+  }
+  if (found.length === 0 && ctx.tag) {
+    const folder = path.join(APP_DIR, "marketing", "images", ctx.tag);
+    const raw = (rel: string) =>
+      ctx.sha && ctx.repo ? `https://raw.githubusercontent.com/${ctx.repo}/${ctx.sha}/${rel.split("/").map(encodeURIComponent).join("/")}` : "";
+    if (existsSync(folder) && statSync(folder).isDirectory()) {
+      const names = readdirSync(folder).filter(isImage).sort().slice(0, 10);
+      for (const [i, name] of names.entries()) {
+        const file = path.join(dir, `image-${i + 1}${path.extname(name).toLowerCase()}`);
+        copyFileSync(path.join(folder, name), file);
+        const sidecar = path.join(folder, `${path.parse(name).name}.txt`);
+        found.push({
+          file,
+          source: `marketing/images/${ctx.tag}/${name}`,
+          url: await publicUrl(raw(`marketing/images/${ctx.tag}/${name}`)),
+          alt: existsSync(sidecar) ? readFileSync(sidecar, "utf8").trim() : "",
+        });
+      }
+    } else {
+      for (const ext of [".png", ".jpg", ".jpeg"]) {
+        const src = path.join(APP_DIR, "marketing", "images", `${ctx.tag}${ext}`);
+        if (!existsSync(src)) continue;
+        const file = path.join(dir, `image-1${ext}`);
+        copyFileSync(src, file);
+        const sidecar = path.join(APP_DIR, "marketing", "images", `${ctx.tag}.txt`);
+        found.push({
+          file,
+          source: `marketing/images/${ctx.tag}${ext}`,
+          url: await publicUrl(raw(`marketing/images/${ctx.tag}${ext}`)),
+          alt: existsSync(sidecar) ? readFileSync(sidecar, "utf8").trim() : "",
+        });
         break;
       }
     }
+  }
+  if (found.length) {
+    media.image = found[0]!.file;
+    media.imageSource = found.length > 1 ? `${found[0]!.source} (+${found.length - 1} more)` : found[0]!.source;
+    media.imageAlt = found[0]!.alt;
+    media.images = found.map((f) => f.file);
+    media.imageUrls = found.map((f) => f.url);
+    media.imageAlts = found.map((f) => f.alt);
   }
 
   // One copy every platform accepts (H.264 + AAC, ≤ 1080×1920, ≤ 60 fps).
@@ -95,11 +134,11 @@ async function main(): Promise<void> {
       `No video for ${ctx.tag || "this update"} (no *.mp4 release asset, no marketing/videos/${ctx.tag || "<tag>"}.mp4): YouTube will be skipped.`,
     );
   }
-  if (media.image) console.log(`Image: ${media.imageSource}`);
+  if (media.image) console.log(`Images: ${media.imageSource}`);
 
   // Paths relative to out/, so they still work after the artifact is downloaded elsewhere.
   const rel = (p: string) => (p ? path.relative(outPath(), p) : "");
-  const stored = { ...media, video: rel(media.video), image: rel(media.image) };
+  const stored = { ...media, video: rel(media.video), image: rel(media.image), images: media.images?.map(rel) };
   writeJson(outPath("media.json"), stored);
   setOutput("has_video", media.video ? "true" : "false");
 }

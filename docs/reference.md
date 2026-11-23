@@ -64,7 +64,12 @@ model, so they're always exact.
 | | Used for |
 |---|---|
 | Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, LinkedIn video post (up to 500 MB; one upload per author), Instagram Reel, TikTok inbox draft |
-| Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
+| Release assets `*.png` / `*.jpg` (up to 10, by name; not `*thumb*`), or the folder `marketing/images/<tag>/`, or `marketing/images/<tag>.png` | Facebook photo post; **without a video:** an Instagram image or carousel (2–10, needs public URLs), a LinkedIn image or multi-image post, the Bluesky / Telegram image |
+
+**Alt text** (screen readers) for each image: the release asset's
+*label* (edit the asset on the release page), or a `.txt` file with the same
+name next to it in `marketing/images/`, else "<app>: <headline>". Used by
+Instagram, LinkedIn and Bluesky.
 
 **Re-encoding** (`reencode`, on by default): the Generate job checks the
 video with ffprobe and, only when a platform would refuse it, makes one

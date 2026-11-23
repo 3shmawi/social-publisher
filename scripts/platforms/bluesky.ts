@@ -5,7 +5,7 @@
 // https://docs.bsky.app/docs/advanced-guides/posts
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { type Context, type Media, type PlatformResult, type Posts, buildShortPosts, primaryLink } from "../lib/content.ts";
+import { type Context, imageAlt, type Media, type PlatformResult, type Posts, buildShortPosts, primaryLink } from "../lib/content.ts";
 import { env, mask } from "../lib/env.ts";
 import { HttpError, requestJson } from "../lib/http.ts";
 
@@ -113,7 +113,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
         });
         embed = {
           $type: "app.bsky.embed.images",
-          images: [{ image: blob.blob, alt: media.imageAlt || `${ctx.app.name}: ${posts.headline || ctx.title}` }],
+          images: [{ image: blob.blob, alt: imageAlt(media, 0, ctx, posts) }],
         };
       }
     }
