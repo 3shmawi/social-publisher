@@ -97,8 +97,14 @@ and pin the `uses:` line to a release commit of this repo (the comment must
 be the tag, which zizmor checks):
 
 ```yaml
-uses: 3shmawi/social-publisher/.github/workflows/publish.yml@<commit sha> # v1.5.0
+uses: 3shmawi/social-publisher/.github/workflows/publish.yml@<commit sha> # v1.6.0
 ```
+
+New versions are tagged automatically after each merge to this repo's
+`main` (`.github/workflows/release.yml`: `feat` → minor, `fix` → patch,
+`!` → major; chore/docs/ci only → no tag). With Dependabot watching
+`github-actions` in the app repo (flutter-project-kit apps have it), a new
+tag becomes an update PR that moves the pin and its comment.
 
 The caller job needs `permissions: contents: write` (the "already posted"
 tags) and `actions: read` (the approval-environment check).

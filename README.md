@@ -79,6 +79,11 @@ npm ci
 npm run check      # typecheck + tests (unit + the whole pipeline against fake APIs)
 ```
 
+**Releases:** merging to `main` tags the next version automatically
+(`.github/workflows/release.yml` → `scripts/release.ts`, from the
+Conventional Commit titles: `feat` minor, `fix` patch, `!` major,
+chore/docs/ci none). App repos pick it up through Dependabot.
+
 `scripts/` is TypeScript run with `tsx` (no build step) on Node 24 in
 Actions. One script per step: `collect` → `generate` → `media` →
 `preflight` → `post <platform>` → `summary`; `lib/content.ts` holds the text
