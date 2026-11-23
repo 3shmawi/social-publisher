@@ -54,3 +54,17 @@ An update without a video skips YouTube.
 ## Check it
 
 Dry run: the credentials table shows `youtube ✅` and the privacy it uploads with.
+
+## Thumbnail and captions (optional)
+- **Custom thumbnail:** attach an image whose name contains `thumb` to the
+  release (`thumbnail.png`, 1280×720, under 2 MB), or commit
+  `marketing/thumbnails/<tag>.png|jpg`. YouTube only allows custom
+  thumbnails on verified channels (youtube.com/verify); otherwise the
+  summary says so and the video keeps YouTube's pick.
+- **Captions (subtitles):** attach `*.en.srt`, `*.ar.srt` (or `.vtt`) to
+  the release, or commit `marketing/captions/<tag>.<lang>.srt|vtt`. Each
+  language is added to the video. This needs the `youtube.force-ssl`
+  scope: tokens made before it was added can't upload captions — run
+  `npx tsx scripts/get-youtube-token.ts` again and update
+  `YT_REFRESH_TOKEN`. The video upload itself works either way.
+

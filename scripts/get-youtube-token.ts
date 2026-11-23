@@ -14,6 +14,8 @@ import { ask, listening, waitForRedirect, netFetch } from "./lib/oauth-local.ts"
 
 const SCOPES = [
   "https://www.googleapis.com/auth/youtube.upload",
+  // Captions (subtitle files) need it; without it the upload still works.
+  "https://www.googleapis.com/auth/youtube.force-ssl",
   // Only so the workflow can show the channel name in its credentials check.
   "https://www.googleapis.com/auth/youtube.readonly",
 ];

@@ -5,13 +5,15 @@
 // uploads is locked to private, whatever privacy you ask for. And while the
 // OAuth consent screen is in "Testing", refresh tokens die after 7 days.
 // docs/youtube.md explains both.
-import { open, stat } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
 import type { Media, PlatformResult, Posts } from "../lib/content.ts";
 import { env, mask } from "../lib/env.ts";
 import { HttpError, request, requestJson, truncate } from "../lib/http.ts";
 
 const CHUNK = 8 * 1024 * 1024; // a multiple of 256 KiB, as YouTube requires
+
+const apiBase = () => env("YT_API_BASE", "https://www.googleapis.com");
 
 export function configured(): string {
   const missing = ["YT_CLIENT_ID", "YT_CLIENT_SECRET", "YT_REFRESH_TOKEN"].filter((n) => !env(n));
@@ -57,7 +59,7 @@ async function accessToken(): Promise<string> {
 
 export async function preflight(): Promise<string> {
   const token = await accessToken();
-  const response = await request("https://www.googleapis.com/youtube/v3/channels?part=snippet&mine=true", {
+  const response = await request(`${apiBase()}/youtube/v3/channels?part=snippet&mine=true`, {
     headers: { Authorization: `Bearer ${token}` },
     label: "YouTube channel",
   });
@@ -95,7 +97,7 @@ export async function publish(posts: Posts, media: Media, outDir: string): Promi
   const parts = Object.keys(posts.youtube.localizations).length ? "snippet,status,localizations" : "snippet,status";
 
   const start = await request(
-    `https://www.googleapis.com/upload/youtube/v3/videos?uploadType=resumable&part=${parts}`,
+    `${apiBase()}/upload/youtube/v3/videos?uploadType=resumable&part=${parts}`,
     {
       method: "POST",
       headers: {
@@ -124,12 +126,78 @@ export async function publish(posts: Posts, media: Media, outDir: string): Promi
     detail +=
       " Videos from a Google Cloud project that hasn't passed YouTube's API audit stay private (locked) until you make them public in YouTube Studio, or until the audit passes (docs/youtube.md, step 6).";
   }
+  // Extras: never fail the upload over them, but say what happened.
+  if (media.thumbnail) detail += ` ${await addThumbnail(video.id, path.join(outDir, media.thumbnail), token)}`;
+  if (media.captions?.length) {
+    detail += ` ${await addCaptions(
+      video.id,
+      media.captions.map((c) => ({ ...c, file: path.join(outDir, c.file) })),
+      token,
+    )}`;
+  }
   return {
     platform: "youtube",
     status: "posted",
     detail,
     links: [{ label: `YouTube (${actual})`, url: `https://youtu.be/${video.id}` }],
+    ids: [video.id],
   };
+}
+
+/** Sets the custom thumbnail; returns a sentence for the summary. */
+export async function addThumbnail(videoId: string, file: string, token: string): Promise<string> {
+  const data = await readFile(file);
+  if (data.length > 2 * 1024 * 1024) return "Thumbnail not set: it's over YouTube's 2 MB limit.";
+  const res = await request(`${apiBase()}/upload/youtube/v3/thumbnails/set?videoId=${encodeURIComponent(videoId)}&uploadType=media`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": /\.png$/i.test(file) ? "image/png" : "image/jpeg" },
+    body: data,
+    label: "YouTube thumbnail",
+    retries: 1,
+  });
+  if (res.ok) return "Custom thumbnail set.";
+  const body = await res.text();
+  if (res.status === 403) {
+    return "Thumbnail not set: the channel can't use custom thumbnails yet (verify it with a phone number: youtube.com/verify).";
+  }
+  return `Thumbnail not set (HTTP ${res.status} ${truncate(body, 150)}).`;
+}
+
+/** Uploads subtitle files (captions.insert); returns a sentence for the summary. */
+export async function addCaptions(videoId: string, captions: { language: string; file: string }[], token: string): Promise<string> {
+  const added: string[] = [];
+  const failed: string[] = [];
+  let scopeMissing = false;
+  for (const caption of captions) {
+    const boundary = `caption-${Date.now()}-${caption.language}`;
+    const snippet = JSON.stringify({ snippet: { videoId, language: caption.language, name: "", isDraft: false } });
+    const body = Buffer.concat([
+      Buffer.from(`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${snippet}\r\n`),
+      Buffer.from(`--${boundary}\r\nContent-Type: application/octet-stream\r\n\r\n`),
+      await readFile(caption.file),
+      Buffer.from(`\r\n--${boundary}--\r\n`),
+    ]);
+    const res = await request(`${apiBase()}/upload/youtube/v3/captions?part=snippet&uploadType=multipart`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": `multipart/related; boundary=${boundary}` },
+      body,
+      label: `YouTube captions (${caption.language})`,
+      retries: 1,
+    });
+    if (res.ok) {
+      added.push(caption.language);
+    } else {
+      const text = await res.text();
+      if (res.status === 403 && /insufficient|scope|permission/i.test(text)) scopeMissing = true;
+      failed.push(caption.language);
+    }
+  }
+  if (scopeMissing) {
+    return `Captions not added (${failed.join(", ")}): YT_REFRESH_TOKEN lacks the youtube.force-ssl scope — run scripts/get-youtube-token.ts again (docs/youtube.md).`;
+  }
+  return [added.length ? `Captions: ${added.join(", ")}.` : "", failed.length ? `Captions failed: ${failed.join(", ")}.` : ""]
+    .filter(Boolean)
+    .join(" ");
 }
 
 async function uploadChunks(location: string, file: string, size: number, token: string): Promise<UploadedVideo> {

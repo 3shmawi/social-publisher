@@ -107,6 +107,42 @@ async function main(): Promise<void> {
     media.imageAlts = found.map((f) => f.alt);
   }
 
+  // YouTube extras: a custom thumbnail and subtitle files.
+  const thumbAsset = assets.find((a) => /thumb/i.test(a.name) && /\.(png|jpe?g)$/i.test(a.name));
+  if (thumbAsset) {
+    media.thumbnail = path.join(dir, `thumbnail${path.extname(thumbAsset.name).toLowerCase()}`);
+    await downloadAsset(thumbAsset, media.thumbnail);
+  } else if (ctx.tag) {
+    for (const ext of [".png", ".jpg", ".jpeg"]) {
+      const src = path.join(APP_DIR, "marketing", "thumbnails", `${ctx.tag}${ext}`);
+      if (!existsSync(src)) continue;
+      media.thumbnail = path.join(dir, `thumbnail${ext}`);
+      copyFileSync(src, media.thumbnail);
+      break;
+    }
+  }
+  const CAPTION = /\.([a-z]{2,3}(?:-[A-Za-z]{2,4})?)\.(srt|vtt)$/;
+  const captions: { language: string; file: string }[] = [];
+  for (const asset of assets) {
+    const m = CAPTION.exec(asset.name);
+    if (!m) continue;
+    const file = path.join(dir, `captions.${m[1]}.${m[2]}`);
+    await downloadAsset(asset, file);
+    captions.push({ language: m[1]!, file });
+  }
+  const captionDir = path.join(APP_DIR, "marketing", "captions");
+  if (captions.length === 0 && ctx.tag && existsSync(captionDir)) {
+    for (const name of readdirSync(captionDir).sort()) {
+      if (!name.startsWith(`${ctx.tag}.`)) continue;
+      const m = CAPTION.exec(name);
+      if (!m) continue;
+      const file = path.join(dir, `captions.${m[1]}.${m[2]}`);
+      copyFileSync(path.join(captionDir, name), file);
+      captions.push({ language: m[1]!, file });
+    }
+  }
+  if (captions.length) media.captions = captions;
+
   // One copy every platform accepts (H.264 + AAC, ≤ 1080×1920, ≤ 60 fps).
   if (media.video && envBool("REENCODE", true)) {
     if (!hasFfmpeg()) {
@@ -135,10 +171,19 @@ async function main(): Promise<void> {
     );
   }
   if (media.image) console.log(`Images: ${media.imageSource}`);
+  if (media.thumbnail) console.log("YouTube thumbnail: found");
+  if (media.captions) console.log(`Captions: ${media.captions.map((c) => c.language).join(", ")}`);
 
   // Paths relative to out/, so they still work after the artifact is downloaded elsewhere.
   const rel = (p: string) => (p ? path.relative(outPath(), p) : "");
-  const stored = { ...media, video: rel(media.video), image: rel(media.image), images: media.images?.map(rel) };
+  const stored = {
+    ...media,
+    video: rel(media.video),
+    image: rel(media.image),
+    images: media.images?.map(rel),
+    thumbnail: media.thumbnail ? rel(media.thumbnail) : undefined,
+    captions: media.captions?.map((c) => ({ ...c, file: rel(c.file) })),
+  };
   writeJson(outPath("media.json"), stored);
   setOutput("has_video", media.video ? "true" : "false");
 }

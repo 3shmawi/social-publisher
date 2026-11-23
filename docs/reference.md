@@ -77,6 +77,8 @@ brings people.
 |---|---|
 | Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, LinkedIn video post (up to 500 MB; one upload per author), Instagram Reel, TikTok inbox draft |
 | Release assets `*.png` / `*.jpg` (up to 10, by name; not `*thumb*`), or the folder `marketing/images/<tag>/`, or `marketing/images/<tag>.png` | Facebook photo post; **without a video:** an Instagram image or carousel (2–10, needs public URLs), a LinkedIn image or multi-image post, the Bluesky / Telegram image |
+| Release asset `*thumb*.png|jpg`, or `marketing/thumbnails/<tag>.png|jpg` | YouTube custom thumbnail |
+| Release assets `*.<lang>.srt|vtt`, or `marketing/captions/<tag>.<lang>.srt|vtt` | YouTube captions, one per language |
 
 **Alt text** (screen readers) for each image: the release asset's
 *label* (edit the asset on the release page), or a `.txt` file with the same

@@ -86,6 +86,10 @@ export interface Media {
   imageUrls?: string[];
   /** Alt text of each image ("" → a default from the app and headline). */
   imageAlts?: string[];
+  /** YouTube custom thumbnail (a *thumb* release asset or marketing/thumbnails/<tag>.png|jpg). */
+  thumbnail?: string;
+  /** Subtitles for YouTube: *.<lang>.srt|vtt release assets or marketing/captions/<tag>.<lang>.srt|vtt. */
+  captions?: { language: string; file: string }[];
 }
 
 /**
