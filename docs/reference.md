@@ -13,6 +13,7 @@ Inputs, what gets posted when, languages, media, state and security.
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
 | `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset; also the opt-in `threads`, `bluesky`, `telegram`, `x` |
+| `reencode` | `true` | Re-encode the video when a platform wouldn't take it (ffmpeg) |
 | `x_links` | `true` | Add the link to X posts (a post with a link costs more on X) |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
 | `linkedin_as` | `person` | `person`, `organization` or `both` |
@@ -64,6 +65,15 @@ model, so they're always exact.
 |---|---|
 | Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, LinkedIn video post (up to 500 MB; one upload per author), Instagram Reel, TikTok inbox draft |
 | Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
+
+**Re-encoding** (`reencode`, on by default): the Generate job checks the
+video with ffprobe and, only when a platform would refuse it, makes one
+copy they all take — H.264 (High) + AAC, yuv420p, even size within
+1080×1920 (either way round), ≤ 60 fps, index at the start
+(`scripts/lib/video.ts`). The review page says why ("re-encoded: video
+codec hevc, 120 fps"). The public release URL still points at the
+original, so for a re-encoded video Instagram uploads the copy and Threads
+posts text.
 
 No video → Instagram, YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes
 becomes a YouTube Short.

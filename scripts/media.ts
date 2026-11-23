@@ -5,8 +5,9 @@
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import type { Context, Media } from "./lib/content.ts";
-import { env, notice, outPath, readJson, run, setOutput, writeJson } from "./lib/env.ts";
+import { env, envBool, notice, outPath, readJson, run, setOutput, warning, writeJson } from "./lib/env.ts";
 import { downloadAsset, getRelease } from "./lib/github.ts";
+import { hasFfmpeg, normalizeVideo } from "./lib/video.ts";
 
 const APP_DIR = env("APP_DIR", ".");
 
@@ -63,6 +64,26 @@ async function main(): Promise<void> {
         copyFileSync(file, media.image);
         media.imageSource = `marketing/images/${ctx.tag}${ext}`;
         break;
+      }
+    }
+  }
+
+  // One copy every platform accepts (H.264 + AAC, ≤ 1080×1920, ≤ 60 fps).
+  if (media.video && envBool("REENCODE", true)) {
+    if (!hasFfmpeg()) {
+      warning("ffmpeg isn't installed: the video is posted as it is (it may be refused if it isn't H.264 + AAC).");
+    } else {
+      try {
+        const reasons = normalizeVideo(media.video);
+        if (reasons.length) {
+          media.videoSource += ` (re-encoded: ${reasons.join(", ")})`;
+          // The public file is the original, which platforms would refuse:
+          // Instagram uploads this copy instead; Threads posts text.
+          media.videoUrl = "";
+          notice(`Re-encoded the video for the platforms (${reasons.join(", ")}).`);
+        }
+      } catch (err) {
+        warning(`Couldn't re-encode the video (${(err as Error).message}); posting the original.`);
       }
     }
   }

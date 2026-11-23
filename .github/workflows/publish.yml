@@ -111,6 +111,10 @@ on:
           is set, else templates), claude-code, api or template (no AI)
         type: string
         default: auto
+      reencode:
+        description: Re-encode the video when a platform wouldn't take it (H.264 + AAC, ≤ 1080×1920, ≤ 60 fps)
+        type: boolean
+        default: true
       x_links:
         description: Add the link to X posts (X charges much more for a post with a link)
         type: boolean
@@ -266,9 +270,16 @@ jobs:
           VOICE: ${{ inputs.voice }}
         run: npx tsx scripts/generate.ts
 
+      # ffmpeg checks the video and makes a copy every platform accepts.
+      - name: Install ffmpeg
+        if: steps.collect.outputs.skip != 'true' && steps.generate.outputs.skip != 'true' && inputs.reencode
+        run: command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
+
       - name: Find the video
         if: steps.collect.outputs.skip != 'true' && steps.generate.outputs.skip != 'true'
         working-directory: publisher
+        env:
+          REENCODE: ${{ inputs.reencode }}
         run: npx tsx scripts/media.ts
 
       - name: Check credentials
