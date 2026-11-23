@@ -56,7 +56,8 @@ jobs:
       website_url: https://cafe.example.com
       languages: en,ar
       linkedin_as: both            # person, organization or both
-      platforms: facebook,instagram,linkedin,youtube,tiktok   # + threads (opt-in)
+      platforms: facebook,instagram,linkedin,youtube,tiktok   # + threads,bluesky,telegram,x (opt-in)
+      # x_links: false             # X charges much more for posts with a link (docs/x.md)
       # tiktok_token_repos: me/app1,me/app2   # repos sharing the TikTok account (default: this one)
       hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
@@ -83,3 +84,11 @@ jobs:
       SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}   # saves TikTok's rotated token
       THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}   # opt-in platforms: docs/threads.md
       THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}
+      BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+      BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      X_API_KEY: ${{ secrets.X_API_KEY }}           # X is pay-per-use: docs/x.md
+      X_API_SECRET: ${{ secrets.X_API_SECRET }}
+      X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+      X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}

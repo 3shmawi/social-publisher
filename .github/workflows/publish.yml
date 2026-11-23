@@ -1,6 +1,7 @@
 # Reusable workflow: announce an app update on LinkedIn, a Facebook Page,
 # Instagram (a Reel), YouTube and TikTok (the video lands in your TikTok
-# inbox as a draft), and on Threads when you turn it on. Called from each app repo by a small .github/workflows/social.yml
+# inbox as a draft), and on Threads, Bluesky, Telegram and X when you turn
+# them on. Called from each app repo by a small .github/workflows/social.yml
 # (examples/social.yml). docs/ has the full setup (docs/app-repo.md).
 #
 # Posts are written by Claude Code on your Claude plan (CLAUDE_CODE_OAUTH_TOKEN),
@@ -43,7 +44,7 @@ on:
         type: string
         default: ''
       platforms:
-        description: Comma-separated subset of facebook,instagram,linkedin,youtube,tiktok,threads (the last ones are opt-in)
+        description: Comma-separated subset of facebook,instagram,linkedin,youtube,tiktok,threads,bluesky,telegram,x (the last four are opt-in)
         type: string
         default: facebook,instagram,linkedin,youtube,tiktok
       languages:
@@ -110,6 +111,10 @@ on:
           is set, else templates), claude-code, api or template (no AI)
         type: string
         default: auto
+      x_links:
+        description: Add the link to X posts (X charges much more for a post with a link)
+        type: boolean
+        default: true
       hashtags:
         description: Hashtags for template posts, comma-separated (e.g. Flutter,MobileApps)
         type: string
@@ -160,6 +165,25 @@ on:
         required: false
       THREADS_TOKEN:
         description: Long-lived Threads token (60 days; the weekly credential check refreshes it)
+        required: false
+      BLUESKY_HANDLE:
+        required: false
+      BLUESKY_APP_PASSWORD:
+        description: An app password (Settings → Privacy and security → App passwords), not the account password
+        required: false
+      TELEGRAM_BOT_TOKEN:
+        description: From @BotFather; the bot is an admin of the channel
+        required: false
+      TELEGRAM_CHAT_ID:
+        description: "@channelname or the numeric chat id"
+        required: false
+      X_API_KEY:
+        required: false
+      X_API_SECRET:
+        required: false
+      X_ACCESS_TOKEN:
+        required: false
+      X_ACCESS_SECRET:
         required: false
       SOCIAL_SECRETS_TOKEN:
         description: Fine-grained GitHub token with Secrets read/write on the app repos; saves TikTok's rotated refresh token
@@ -236,6 +260,7 @@ jobs:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           WRITER: ${{ inputs.writer }}
+          X_LINKS: ${{ inputs.x_links }}
           HASHTAGS: ${{ inputs.hashtags }}
           MODEL: ${{ inputs.model }}
           VOICE: ${{ inputs.voice }}
@@ -274,6 +299,15 @@ jobs:
           SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}
           THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
           THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          X_LINKS: ${{ inputs.x_links }}
         run: npx tsx scripts/preflight.ts
 
       - name: Result
@@ -589,9 +623,129 @@ jobs:
           path: out/results
           if-no-files-found: ignore
 
+  bluesky:
+    name: Bluesky
+    needs: [generate, approve]
+    if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'bluesky') }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write   # tag social/posted/<key>/bluesky
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SOCIAL_OUT: ${{ github.workspace }}/out
+      DRY_RUN: ${{ inputs.dry_run }}
+      FORCE: ${{ inputs.force }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: publisher
+          persist-credentials: false
+      - uses: ./publisher/.github/actions/setup # zizmor: ignore[self-repository] publisher/ is this repo, checked out above at job.workflow_sha; ./ would be the app repo
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: social-posts
+          path: out
+      - name: Post
+        working-directory: publisher
+        env:
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+        run: npx tsx scripts/post.ts bluesky
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: social-result-bluesky
+          path: out/results
+          if-no-files-found: ignore
+
+  telegram:
+    name: Telegram
+    needs: [generate, approve]
+    if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'telegram') }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write   # tag social/posted/<key>/telegram
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SOCIAL_OUT: ${{ github.workspace }}/out
+      DRY_RUN: ${{ inputs.dry_run }}
+      FORCE: ${{ inputs.force }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: publisher
+          persist-credentials: false
+      - uses: ./publisher/.github/actions/setup # zizmor: ignore[self-repository] publisher/ is this repo, checked out above at job.workflow_sha; ./ would be the app repo
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: social-posts
+          path: out
+      - name: Post
+        working-directory: publisher
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: npx tsx scripts/post.ts telegram
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: social-result-telegram
+          path: out/results
+          if-no-files-found: ignore
+
+  x:
+    name: X
+    needs: [generate, approve]
+    if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'x') }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # tag social/posted/<key>/x
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      SOCIAL_OUT: ${{ github.workspace }}/out
+      DRY_RUN: ${{ inputs.dry_run }}
+      FORCE: ${{ inputs.force }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: publisher
+          persist-credentials: false
+      - uses: ./publisher/.github/actions/setup # zizmor: ignore[self-repository] publisher/ is this repo, checked out above at job.workflow_sha; ./ would be the app repo
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: social-posts
+          path: out
+      - name: Post
+        working-directory: publisher
+        env:
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+          X_LINKS: ${{ inputs.x_links }}
+        run: npx tsx scripts/post.ts x
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: social-result-x
+          path: out/results
+          if-no-files-found: ignore
+
   summary:
     name: Summary
-    needs: [generate, approve, facebook, instagram, linkedin, youtube, tiktok, threads]
+    needs: [generate, approve, facebook, instagram, linkedin, youtube, tiktok, threads, bluesky, telegram, x]
     if: ${{ always() && needs.generate.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

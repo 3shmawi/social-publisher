@@ -20,6 +20,9 @@ in the summary), never failed.
 | YouTube | [youtube.md](youtube.md) | 20 min (+ weeks for the audit, for public videos) |
 | TikTok | [tiktok.md](tiktok.md) | 30 min (+ TikTok's app review) |
 | Threads (opt-in) | [threads.md](threads.md) | 10 min |
+| Bluesky (opt-in) | [bluesky.md](bluesky.md) | 2 min |
+| Telegram (opt-in) | [telegram.md](telegram.md) | 5 min |
+| X (opt-in, paid) | [x.md](x.md) | 10 min |
 
 The token helpers run on your own computer (Node 22+):
 
@@ -54,6 +57,9 @@ secrets; a GitHub organization can hold them once as organization secrets).
 | `SOCIAL_SECRETS_TOKEN` | TikTok, Threads | yes (TikTok) | fine-grained GitHub token, *Secrets: Read and write* on your app repos |
 | `THREADS_USER_ID` | Threads | yes | `get-threads-token.ts` ([threads.md](threads.md)) |
 | `THREADS_TOKEN` | Threads | yes | `get-threads-token.ts`; the weekly check refreshes it |
+| `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` | Bluesky | yes | an app password ([bluesky.md](bluesky.md)) |
+| `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` | Telegram | yes | @BotFather ([telegram.md](telegram.md)) |
+| `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` | X | yes | X Developer Console ([x.md](x.md)) |
 
 \* or `LINKEDIN_REFRESH_TOKEN` with the client ID and secret.
 

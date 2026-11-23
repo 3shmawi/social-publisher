@@ -74,6 +74,8 @@ export interface Media {
   videoUrl?: string;
   image: string;
   imageSource: string;
+  /** Describes the image for screen readers (Bluesky, LinkedIn, X, Instagram). */
+  imageAlt?: string;
 }
 
 /** Every platform, in the order jobs and the summary list them. */
@@ -84,6 +86,9 @@ export const ALL_PLATFORMS = [
   "youtube",
   "tiktok",
   "threads",
+  "bluesky",
+  "telegram",
+  "x",
 ] as const;
 
 /** On unless the `platforms` input says otherwise (the newer ones are opt-in). */

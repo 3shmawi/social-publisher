@@ -44,6 +44,9 @@ ends with the secrets it gives you; a platform you skip is simply skipped.
 | 4 | [YouTube](docs/youtube.md) | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
 | 5 | [TikTok](docs/tiktok.md) | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN`, `SOCIAL_SECRETS_TOKEN` |
 | + | [Threads](docs/threads.md) (opt-in: add `threads` to `platforms`) | `THREADS_USER_ID`, `THREADS_TOKEN` |
+| + | [Bluesky](docs/bluesky.md) (opt-in) | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |
+| + | [Telegram](docs/telegram.md) (opt-in) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| + | [X](docs/x.md) (opt-in, paid API) | `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` |
 | 6 | **[Add it to an app repo](docs/app-repo.md)**: every secret in one table, the `social` approval environment, the caller workflow, variables, dry run and going live | |
 
 Then: [Reference](docs/reference.md) (inputs, behaviour, media, state,

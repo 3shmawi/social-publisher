@@ -3,11 +3,14 @@
 import { DEFAULT_PLATFORMS } from "./lib/content.ts";
 import { env, envBool, envList, error, run, summary, warning } from "./lib/env.ts";
 import { environmentHasReviewers } from "./lib/github.ts";
+import * as bluesky from "./platforms/bluesky.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as instagram from "./platforms/instagram.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as telegram from "./platforms/telegram.ts";
 import * as threads from "./platforms/threads.ts";
 import * as tiktok from "./platforms/tiktok.ts";
+import * as x from "./platforms/x.ts";
 import * as youtube from "./platforms/youtube.ts";
 
 async function main(): Promise<void> {
@@ -21,6 +24,9 @@ async function main(): Promise<void> {
     youtube,
     tiktok: { configured: tiktok.configured, preflight: async () => "set; checked when posting (a check would rotate the token)" },
     threads,
+    bluesky,
+    telegram,
+    x,
   } as const;
   const rows: string[] = ["| Platform | Credentials |", "|---|---|"];
 

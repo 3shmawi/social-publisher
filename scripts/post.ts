@@ -6,11 +6,14 @@
 import { ALL_PLATFORMS, type Context, type Media, type Platform, type PlatformResult, type Posts } from "./lib/content.ts";
 import { env, envBool, error, outPath, readJson, run, summary, warning, writeJson } from "./lib/env.ts";
 import { postedRef, putRef, refExists } from "./lib/github.ts";
+import * as bluesky from "./platforms/bluesky.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as instagram from "./platforms/instagram.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as telegram from "./platforms/telegram.ts";
 import * as threads from "./platforms/threads.ts";
 import * as tiktok from "./platforms/tiktok.ts";
+import * as x from "./platforms/x.ts";
 import * as youtube from "./platforms/youtube.ts";
 
 async function alreadyPosted(key: string, channel: string): Promise<boolean> {
@@ -67,6 +70,9 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     youtube: () => youtube.publish(posts, media, out),
     tiktok: () => tiktok.publish(posts, media, out),
     threads: () => threads.publish(ctx, posts, media),
+    bluesky: () => bluesky.publish(ctx, posts, media, out),
+    telegram: () => telegram.publish(ctx, posts, media, out),
+    x: () => x.publish(ctx, posts),
   };
   const result = await publishers[platform]();
   if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha);
@@ -75,7 +81,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
 
 async function main(): Promise<void> {
   const platform = process.argv[2] as Platform;
-  const modules = { facebook, instagram, linkedin, youtube, tiktok, threads };
+  const modules = { facebook, instagram, linkedin, youtube, tiktok, threads, bluesky, telegram, x };
   if (!(platform in modules)) throw new Error(`Usage: post.ts ${ALL_PLATFORMS.join("|")}`);
 
   let result: PlatformResult;

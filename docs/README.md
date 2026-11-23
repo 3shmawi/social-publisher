@@ -12,6 +12,9 @@ repo. Each platform guide ends with the exact secrets it produces.
 | [YouTube](youtube.md) | the video uploaded (Shorts when vertical) | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
 | [TikTok](tiktok.md) | the video as a draft in your TikTok inbox | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN`, `SOCIAL_SECRETS_TOKEN` |
 | [Threads](threads.md) (opt-in) | text posts, or the video when it's public | `THREADS_USER_ID`, `THREADS_TOKEN` |
+| [Bluesky](bluesky.md) (opt-in) | short posts with the image or a link card | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |
+| [Telegram](telegram.md) (opt-in) | the video / image / text in your channel | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| [X](x.md) (opt-in, paid API) | short text posts | `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` |
 | [TikTok review video](tiktok-review-demo.md) | shot list for TikTok's app review | |
 | **[Add it to an app repo](app-repo.md)** | all secrets in one table, the `social` environment, variables, dry run, going live | |
 | [Reference](reference.md) | inputs, what gets posted when, media, state, security | |
