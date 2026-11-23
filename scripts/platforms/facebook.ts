@@ -88,7 +88,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
       return result("photo", [{ label: "Facebook post", url: `https://www.facebook.com/${res.post_id ?? res.id}` }]);
     }
     const body = new URLSearchParams({ message: posts.facebook });
-    const link = primaryLink(ctx.app);
+    const link = primaryLink(ctx.app, "facebook");
     if (link) body.set("link", link);
     const res = await requestJson<{ id: string }>(`${graph}/feed`, {
       method: "POST",

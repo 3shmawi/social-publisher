@@ -111,6 +111,14 @@ on:
           is set, else templates), claude-code, api or template (no AI)
         type: string
         default: auto
+      utm:
+        description: Add campaign tags to links (utm_source=<platform>, utm_campaign=<tag>; Play Store referrer)
+        type: boolean
+        default: true
+      app_store_provider_token:
+        description: App Store Connect provider token (App Analytics → Campaigns) to tag App Store links; empty leaves them as they are
+        type: string
+        default: ''
       reencode:
         description: Re-encode the video when a platform wouldn't take it (H.264 + AAC, ≤ 1080×1920, ≤ 60 fps)
         type: boolean
@@ -254,6 +262,8 @@ jobs:
           BIWEEKLY: ${{ inputs.biweekly }}
           INCLUDE_PRERELEASES: ${{ inputs.include_prereleases }}
           LINKEDIN_AS: ${{ inputs.linkedin_as }}
+          UTM: ${{ inputs.utm }}
+          APP_STORE_PROVIDER_TOKEN: ${{ inputs.app_store_provider_token }}
         run: npx tsx scripts/collect.ts
 
       - name: Write the posts

@@ -2,7 +2,7 @@
 // Writes out/context.json and the outputs `skip` and `key`.
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { type Context, DEFAULT_PLATFORMS, hasSkipMarker, isoWeek, onlyInternalChanges } from "./lib/content.ts";
+import { type Context, DEFAULT_PLATFORMS, hasSkipMarker, isoWeek, onlyInternalChanges, utmCampaign } from "./lib/content.ts";
 import { channels } from "./lib/channels.ts";
 import { env, envBool, envList, notice, outPath, run, setOutput, summary, writeJson } from "./lib/env.ts";
 import { getLatestRelease, getRelease, mergedPullRequestsSince, postedRef, type Release, refExists } from "./lib/github.ts";
@@ -50,6 +50,7 @@ async function main(): Promise<void> {
       appStoreUrl: env("APP_STORE_URL"),
       websiteUrl: env("WEBSITE_URL"),
       about: env("ABOUT"),
+      appStoreProviderToken: env("APP_STORE_PROVIDER_TOKEN"),
     },
     mode: "release",
     key: "",
@@ -73,6 +74,8 @@ async function main(): Promise<void> {
         ctx.skip = `Already posted "${ctx.key}" to ${platforms.join(", ")} (tags social/posted/${ctx.key}/*). Run with force: true to post again.`;
       }
     }
+    // Links in the posts carry utm_source=<platform>&utm_campaign=<tag>.
+    if (envBool("UTM", true) && ctx.key) ctx.app.utmCampaign = utmCampaign(ctx.key);
     writeJson(outPath("context.json"), ctx);
     setOutput("skip", ctx.skip ? "true" : "false");
     setOutput("key", ctx.key);

@@ -117,7 +117,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
         };
       }
     }
-    const link = primaryLink(ctx.app);
+    const link = primaryLink(ctx.app, "bluesky");
     if (!embed && link) {
       embed = {
         $type: "app.bsky.embed.external",

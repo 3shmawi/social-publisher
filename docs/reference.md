@@ -13,6 +13,8 @@ Inputs, what gets posted when, languages, media, state and security.
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
 | `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset; also the opt-in `threads`, `bluesky`, `telegram`, `x` |
+| `utm` | `true` | Campaign tags on links (see [Language and links](#language-and-links)) |
+| `app_store_provider_token` | | Tags App Store links for App Analytics |
 | `reencode` | `true` | Re-encode the video when a platform wouldn't take it (ffmpeg) |
 | `x_links` | `true` | Add the link to X posts (a post with a link costs more on X) |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
@@ -58,6 +60,16 @@ one post with the languages one after another (separated by `— — —`); YouT
 gets the main language plus a localization per other language, so viewers
 see their own language. Store links are added by the script, not by the
 model, so they're always exact.
+
+**Campaign tags** (`utm`, on by default): each platform's links say where
+the visit came from, with the update as the campaign — website links get
+`utm_source=<platform>&utm_medium=social&utm_campaign=<tag>`, Google Play
+links get the same in `referrer` (Play Console → Statistics / acquisition
+reports by campaign), App Store links get `pt` + `ct` (App Analytics →
+Campaigns) only when you set `app_store_provider_token` (App Store
+Connect → App Analytics → Campaigns → Campaign Generator shows it). In
+PostHog / web analytics filter by `utm_source` to see which platform
+brings people.
 
 ## Media
 
