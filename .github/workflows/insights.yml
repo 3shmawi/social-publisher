@@ -1,0 +1,136 @@
+# Reusable workflow: how did the posts do? Finds what was posted `days` days
+# ago (or the update in `key`) from the social/posted/* tags and writes
+# each post's views, likes, comments and shares to the job summary. Run it
+# daily: each post shows up once, a week after it went out.
+# Called from each app repo by examples/social-insights.yml.
+name: Social insights
+
+on:
+  workflow_call:
+    inputs:
+      days:
+        description: Report the posts made this many days ago
+        type: number
+        default: 7
+      key:
+        description: Or every post of one update (a release tag such as v1.2.0)
+        type: string
+        default: ''
+      linkedin_version:
+        type: string
+        default: '202609'
+      facebook_graph_version:
+        type: string
+        default: v24.0
+      x_insights:
+        description: Read X numbers too (X bills every read)
+        type: boolean
+        default: false
+    secrets:
+      FB_PAGE_ID:
+        required: false
+      FB_PAGE_TOKEN:
+        required: false
+      IG_USER_ID:
+        required: false
+      LINKEDIN_TOKEN:
+        required: false
+      LINKEDIN_AUTHOR_URN:
+        required: false
+      LINKEDIN_ORG_URN:
+        required: false
+      LINKEDIN_CLIENT_ID:
+        required: false
+      LINKEDIN_CLIENT_SECRET:
+        required: false
+      LINKEDIN_REFRESH_TOKEN:
+        required: false
+      YT_CLIENT_ID:
+        required: false
+      YT_CLIENT_SECRET:
+        required: false
+      YT_REFRESH_TOKEN:
+        required: false
+      TIKTOK_CLIENT_KEY:
+        required: false
+      TIKTOK_CLIENT_SECRET:
+        required: false
+      TIKTOK_REFRESH_TOKEN:
+        required: false
+      THREADS_USER_ID:
+        required: false
+      THREADS_TOKEN:
+        required: false
+      BLUESKY_HANDLE:
+        required: false
+      BLUESKY_APP_PASSWORD:
+        required: false
+      TELEGRAM_BOT_TOKEN:
+        required: false
+      TELEGRAM_CHAT_ID:
+        required: false
+      X_API_KEY:
+        required: false
+      X_API_SECRET:
+        required: false
+      X_ACCESS_TOKEN:
+        required: false
+      X_ACCESS_SECRET:
+        required: false
+
+permissions: {}
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  insights:
+    name: Insights
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read   # the social/posted/* tags
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ${{ job.workflow_repository }}
+          ref: ${{ job.workflow_sha }}
+          path: publisher
+          persist-credentials: false
+      - uses: ./publisher/.github/actions/setup # zizmor: ignore[self-repository] publisher/ is this repo, checked out above at job.workflow_sha; ./ would be the app repo
+      - name: Read the numbers
+        working-directory: publisher
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          DAYS: ${{ inputs.days }}
+          KEY: ${{ inputs.key }}
+          X_INSIGHTS: ${{ inputs.x_insights }}
+          LINKEDIN_VERSION: ${{ inputs.linkedin_version }}
+          FB_GRAPH_VERSION: ${{ inputs.facebook_graph_version }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
+          LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+          LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
+          LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+          LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+          LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+          YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+          YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+          YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+          TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+          TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+          TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+          THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+          THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}
+          BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+          BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          X_API_KEY: ${{ secrets.X_API_KEY }}
+          X_API_SECRET: ${{ secrets.X_API_SECRET }}
+          X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+          X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+        run: npx tsx scripts/insights.ts

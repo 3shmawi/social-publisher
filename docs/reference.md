@@ -12,7 +12,15 @@ Inputs, what gets posted when, languages, media, state and security.
 | `about` | | One or two sentences about the app and its users; helps the writing |
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
-| `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset |
+| `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset; also the opt-in `threads`, `bluesky`, `telegram`, `x` |
+| `post_at` | | Post at this time after approval (`HH:MM`, 24-hour); empty = at once |
+| `post_timezone` | `UTC` | IANA zone for `post_at`, e.g. `Africa/Cairo` |
+| `post_at_overrides` | | Other times per platform: `linkedin=09:00,instagram=19:30` |
+| `max_wait_hours` | `5` | Longest a job waits; a time further away posts at once |
+| `utm` | `true` | Campaign tags on links (see [Language and links](#language-and-links)) |
+| `app_store_provider_token` | | Tags App Store links for App Analytics |
+| `reencode` | `true` | Re-encode the video when a platform wouldn't take it (ffmpeg) |
+| `x_links` | `true` | Add the link to X posts (a post with a link costs more on X) |
 | `languages` | `en` | e.g. `en,ar`; the first is the main language |
 | `linkedin_as` | `person` | `person`, `organization` or `both` |
 | `linkedin_version` | `202609` | `LinkedIn-Version` header |
@@ -57,12 +65,38 @@ gets the main language plus a localization per other language, so viewers
 see their own language. Store links are added by the script, not by the
 model, so they're always exact.
 
+**Campaign tags** (`utm`, on by default): each platform's links say where
+the visit came from, with the update as the campaign — website links get
+`utm_source=<platform>&utm_medium=social&utm_campaign=<tag>`, Google Play
+links get the same in `referrer` (Play Console → Statistics / acquisition
+reports by campaign), App Store links get `pt` + `ct` (App Analytics →
+Campaigns) only when you set `app_store_provider_token` (App Store
+Connect → App Analytics → Campaigns → Campaign Generator shows it). In
+PostHog / web analytics filter by `utm_source` to see which platform
+brings people.
+
 ## Media
 
 | | Used for |
 |---|---|
 | Release asset `*.mp4`, or `marketing/videos/<tag>.mp4` in the app repo | YouTube upload, Facebook video post, LinkedIn video post (up to 500 MB; one upload per author), Instagram Reel, TikTok inbox draft |
-| Release asset `*.png` / `*.jpg`, or `marketing/images/<tag>.png` | Facebook photo post |
+| Release assets `*.png` / `*.jpg` (up to 10, by name; not `*thumb*`), or the folder `marketing/images/<tag>/`, or `marketing/images/<tag>.png` | Facebook photo post; **without a video:** an Instagram image or carousel (2–10, needs public URLs), a LinkedIn image or multi-image post, the Bluesky / Telegram image |
+| Release asset `*thumb*.png|jpg`, or `marketing/thumbnails/<tag>.png|jpg` | YouTube custom thumbnail |
+| Release assets `*.<lang>.srt|vtt`, or `marketing/captions/<tag>.<lang>.srt|vtt` | YouTube captions, one per language |
+
+**Alt text** (screen readers) for each image: the release asset's
+*label* (edit the asset on the release page), or a `.txt` file with the same
+name next to it in `marketing/images/`, else "<app>: <headline>". Used by
+Instagram, LinkedIn and Bluesky.
+
+**Re-encoding** (`reencode`, on by default): the Generate job checks the
+video with ffprobe and, only when a platform would refuse it, makes one
+copy they all take — H.264 (High) + AAC, yuv420p, even size within
+1080×1920 (either way round), ≤ 60 fps, index at the start
+(`scripts/lib/video.ts`). The review page says why ("re-encoded: video
+codec hevc, 120 fps"). The public release URL still points at the
+original, so for a re-encoded video Instagram uploads the copy and Threads
+posts text.
 
 No video → Instagram, YouTube and TikTok are skipped (not failed). A vertical video under 3 minutes
 becomes a YouTube Short.
@@ -99,4 +133,53 @@ To post an update again: run with `force: true`, or delete the tag
 - Actions are pinned to commits; app repos pin this workflow to a commit,
   and the scripts are checked out at that same commit (`job.workflow_sha`).
 - No npm cache (cache poisoning on release events); `npm ci` from the lockfile.
+
+## Weekly credential check
+`examples/social-health.yml` (copy it next to `social.yml`, same platforms
+and secrets) calls `.github/workflows/health.yml` every Monday:
+- runs each enabled platform's read-only check (the same one the review
+  page shows), so an expired Facebook, LinkedIn, YouTube, Threads,
+  Bluesky, Telegram or X credential shows up before a release;
+- while anything fails it keeps **one issue** open (label
+  `social-credentials`) and updates it each week, with each platform's fix;
+  it closes the issue when all checks pass;
+- refreshes the Threads token (60 days) and saves it with
+  `SOCIAL_SECRETS_TOKEN`, in every repo in `threads_token_repos`;
+- TikTok isn't checked: checking would rotate its token (the posting job
+  does that).
+
+Needs `permissions: issues: write` in the caller (the example has it).
+
+## Insights
+`examples/social-insights.yml` calls `.github/workflows/insights.yml`
+daily. Each post is reported once, 7 days after it went out (`days`), in
+the run's summary: views, likes, comments and shares per platform with a
+link to the post. Run it by hand with `key: v1.2.0` for one update.
+
+It reads the post ids stored in the `social/posted/<key>/<channel>` tags
+(annotated tags; posts made before this feature have no ids and are left
+out). What each platform shares:
+
+| Platform | Numbers | Needs |
+|---|---|---|
+| Facebook | reactions, comments, shares; video views | Page token (`read_insights` for video views) |
+| Instagram | views, likes, comments, shares | `instagram_manage_insights` on the Page token |
+| LinkedIn | likes, comments | a token that may read social actions on the post |
+| YouTube | views, likes, comments | the existing YouTube secrets |
+| Threads | views, likes, replies, reposts | `threads_manage_insights` (in `get-threads-token.ts`) |
+| Bluesky | likes, replies, reposts | nothing (public) |
+| X | impressions, likes, replies, reposts | `x_insights: true` — X bills each read |
+| TikTok, Telegram | — | not shared (TikTok: a draft; Telegram: no view counts for bots) |
+
+A missing permission shows as a note in that row; the rest of the report
+still runs.
+
+## Posting at a set time
+With `post_at: "18:00"` and `post_timezone: Africa/Cairo`, each platform
+job waits after your approval until the next 18:00 Cairo time, then posts;
+`post_at_overrides: linkedin=09:00` gives LinkedIn its own time (the next
+09:00). The waiting happens on the runner: GitHub stops a job after
+6 hours, so a time more than `max_wait_hours` (≤ 5.5) away posts at once
+with a warning — approve within a few hours of the posting time. Waiting
+uses Actions minutes (free on public repos). Dry runs never wait.
 

@@ -12,9 +12,9 @@
 // author) → PUT each 4 MB part to its pre-signed uploadUrl, keep the ETags →
 // POST ?action=finalizeUpload → GET /rest/videos/{urn} until AVAILABLE →
 // the post gets content.media { title, id }. Up to 500 MB, 3 s to 30 min, MP4.
-import { open, stat } from "node:fs/promises";
+import { open, readFile, stat } from "node:fs/promises";
 import path from "node:path";
-import { type Media, type PlatformResult, type Posts, toLittleText } from "../lib/content.ts";
+import { type Context, imageAlt, type Media, type PlatformResult, type Posts, toLittleText } from "../lib/content.ts";
 import { env, mask, warning } from "../lib/env.ts";
 import { HttpError, request, requestJson, truncate } from "../lib/http.ts";
 
@@ -148,6 +148,29 @@ interface UploadInit {
   };
 }
 
+/** Upload one image for an author (Images API); returns its urn:li:image. */
+export async function uploadImage(file: string, owner: string, token: string): Promise<string> {
+  const init = await requestJson<{ value: { uploadUrl: string; image: string } }>(
+    `${api()}/rest/images?action=initializeUpload`,
+    {
+      method: "POST",
+      headers: restHeaders(token),
+      body: JSON.stringify({ initializeUploadRequest: { owner } }),
+      label: "LinkedIn image upload start",
+      retries: 1,
+    },
+  );
+  const res = await request(init.value.uploadUrl, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/octet-stream" },
+    body: await readFile(file),
+    label: "LinkedIn image upload",
+    retries: 2,
+  });
+  if (!res.ok) throw new Error(`LinkedIn image upload: HTTP ${res.status} ${truncate(await res.text(), 200)}`);
+  return init.value.image;
+}
+
 /** Upload the video for one author; returns its urn:li:video once LinkedIn can serve it. */
 export async function uploadVideo(file: string, owner: string, token: string): Promise<string> {
   const size = (await stat(file)).size;
@@ -219,10 +242,14 @@ export async function publish(
   target: Target,
   media?: Media,
   outDir = "",
+  ctx?: Pick<Context, "app" | "title">,
 ): Promise<PlatformResult["links"][number]> {
   const token = await accessToken();
   const version = env("LINKEDIN_VERSION", "202609");
-  let content: { media: { title: string; id: string } } | undefined;
+  let content:
+    | { media: { title?: string; id: string; altText?: string } }
+    | { multiImage: { images: { id: string; altText: string }[] } }
+    | undefined;
   if (media?.video) {
     const file = path.join(outDir, media.video);
     if ((await stat(file)).size > MAX_VIDEO) {
@@ -231,6 +258,15 @@ export async function publish(
       const id = await uploadVideo(file, target.urn, token);
       content = { media: { title: posts.youtube?.title || "Video", id } };
     }
+  } else if (media && (media.images?.length || media.image)) {
+    // No video: the images — one, or a multi-image post (2–20).
+    const files = (media.images?.length ? media.images : [media.image]).slice(0, 20);
+    const names = { app: ctx?.app ?? { name: "", playStoreUrl: "", appStoreUrl: "", websiteUrl: "", about: "" }, title: ctx?.title ?? "" };
+    const images: { id: string; altText: string }[] = [];
+    for (const [i, rel] of files.entries()) {
+      images.push({ id: await uploadImage(path.join(outDir, rel), target.urn, token), altText: imageAlt(media, i, names, posts) });
+    }
+    content = images.length === 1 ? { media: { id: images[0]!.id, altText: images[0]!.altText } } : { multiImage: { images } };
   }
   const response = await request(`${api()}/rest/posts`, {
     method: "POST",

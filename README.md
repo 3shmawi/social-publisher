@@ -43,7 +43,19 @@ ends with the secrets it gives you; a platform you skip is simply skipped.
 | 3 | [LinkedIn](docs/linkedin.md) | `LINKEDIN_TOKEN`, `LINKEDIN_AUTHOR_URN`, `LINKEDIN_ORG_URN`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REFRESH_TOKEN` |
 | 4 | [YouTube](docs/youtube.md) | `YT_CLIENT_ID`, `YT_CLIENT_SECRET`, `YT_REFRESH_TOKEN` |
 | 5 | [TikTok](docs/tiktok.md) | `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REFRESH_TOKEN`, `SOCIAL_SECRETS_TOKEN` |
+| + | [Threads](docs/threads.md) (opt-in: add `threads` to `platforms`) | `THREADS_USER_ID`, `THREADS_TOKEN` |
+| + | [Bluesky](docs/bluesky.md) (opt-in) | `BLUESKY_HANDLE`, `BLUESKY_APP_PASSWORD` |
+| + | [Telegram](docs/telegram.md) (opt-in) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID` |
+| + | [X](docs/x.md) (opt-in, paid API) | `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` |
 | 6 | **[Add it to an app repo](docs/app-repo.md)**: every secret in one table, the `social` approval environment, the caller workflow, variables, dry run and going live | |
+
+**Weekly credential check:** copy [`examples/social-health.yml`](examples/social-health.yml)
+too — every Monday it checks each platform's token and opens an issue
+before an expired one can break a release ([reference](docs/reference.md#weekly-credential-check)).
+
+**Insights:** [`examples/social-insights.yml`](examples/social-insights.yml)
+reports each post's views, likes, comments and shares a week after it went
+out ([reference](docs/reference.md#insights)).
 
 Then: [Reference](docs/reference.md) (inputs, behaviour, media, state,
 security) · [Troubleshooting](docs/troubleshooting.md).
@@ -71,3 +83,7 @@ npm run check      # typecheck + tests (unit + the whole pipeline against fake A
 Actions. One script per step: `collect` → `generate` → `media` →
 `preflight` → `post <platform>` → `summary`; `lib/content.ts` holds the text
 rules and is unit-tested.
+
+## License
+
+See [LICENSE.md](LICENSE.md): for flutter-project-kit license holders' apps.

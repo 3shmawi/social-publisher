@@ -3,24 +3,38 @@
 // Each place we post to ("channel": facebook, linkedin-person,
 // linkedin-organization, youtube) gets the tag social/posted/<key>/<channel>
 // once it's done, so a re-run never posts the same update there twice.
-import type { Context, Media, PlatformResult, Posts } from "./lib/content.ts";
+import { ALL_PLATFORMS, type Context, type Media, type Platform, type PlatformResult, type Posts } from "./lib/content.ts";
 import { env, envBool, error, outPath, readJson, run, summary, warning, writeJson } from "./lib/env.ts";
-import { postedRef, putRef, refExists } from "./lib/github.ts";
+import { postedRef, putPostedTag, refExists } from "./lib/github.ts";
+import * as bluesky from "./platforms/bluesky.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as instagram from "./platforms/instagram.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as telegram from "./platforms/telegram.ts";
+import * as threads from "./platforms/threads.ts";
 import * as tiktok from "./platforms/tiktok.ts";
+import * as x from "./platforms/x.ts";
 import * as youtube from "./platforms/youtube.ts";
-
-type Platform = PlatformResult["platform"];
 
 async function alreadyPosted(key: string, channel: string): Promise<boolean> {
   return !envBool("FORCE") && (await refExists(postedRef(key, channel)));
 }
 
-async function markPosted(key: string, channel: string, sha: string): Promise<void> {
+async function markPosted(
+  key: string,
+  channel: string,
+  sha: string,
+  posted: Pick<PlatformResult, "platform" | "ids" | "links">,
+): Promise<void> {
   try {
-    await putRef(postedRef(key, channel), sha);
+    await putPostedTag(postedRef(key, channel), sha, {
+      key,
+      platform: posted.platform,
+      channel,
+      ids: posted.ids ?? [],
+      links: posted.links,
+      postedAt: new Date().toISOString(),
+    });
   } catch (err) {
     warning(`Posted, but couldn't record it (${(err as Error).message}). A re-run would post again.`);
   }
@@ -39,8 +53,10 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
         continue;
       }
       try {
-        links.push(await linkedin.publish(posts, target, media, out));
-        await markPosted(ctx.key, channel, ctx.sha);
+        const link = await linkedin.publish(posts, target, media, out, ctx);
+        links.push(link);
+        const urn = /\/feed\/update\/([^/]+)\//.exec(link.url)?.[1];
+        await markPosted(ctx.key, channel, ctx.sha, { platform, links: [link], ids: urn ? [urn] : [] });
       } catch (err) {
         failures.push((err as Error).message);
       }
@@ -54,7 +70,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     return {
       platform,
       status: "posted",
-      detail: `Posted${media.video ? " with the video" : ""} as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`,
+      detail: `Posted${media.video ? " with the video" : (media.images?.length ?? 0) > 1 ? " with the images" : media.image ? " with the image" : ""} as ${linkedin.targets().map((t) => t.kind).join(" and ")}.`,
       links,
     };
   }
@@ -62,22 +78,25 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
   if (await alreadyPosted(ctx.key, platform)) {
     return { platform, status: "already-posted", detail: `Already posted "${ctx.key}".`, links: [] };
   }
-  const result =
-    platform === "facebook"
-      ? await facebook.publish(ctx, posts, media, out)
-      : platform === "instagram"
-        ? await instagram.publish(ctx, posts, media, out)
-        : platform === "tiktok"
-        ? await tiktok.publish(posts, media, out)
-        : await youtube.publish(posts, media, out);
-  if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha);
+  const publishers: Record<Exclude<Platform, "linkedin">, () => Promise<PlatformResult>> = {
+    facebook: () => facebook.publish(ctx, posts, media, out),
+    instagram: () => instagram.publish(ctx, posts, media, out),
+    youtube: () => youtube.publish(posts, media, out),
+    tiktok: () => tiktok.publish(posts, media, out),
+    threads: () => threads.publish(ctx, posts, media),
+    bluesky: () => bluesky.publish(ctx, posts, media, out),
+    telegram: () => telegram.publish(ctx, posts, media, out),
+    x: () => x.publish(ctx, posts),
+  };
+  const result = await publishers[platform]();
+  if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha, result);
   return result;
 }
 
 async function main(): Promise<void> {
   const platform = process.argv[2] as Platform;
-  const modules = { facebook, instagram, linkedin, youtube, tiktok };
-  if (!(platform in modules)) throw new Error("Usage: post.ts facebook|instagram|linkedin|youtube|tiktok");
+  const modules = { facebook, instagram, linkedin, youtube, tiktok, threads, bluesky, telegram, x };
+  if (!(platform in modules)) throw new Error(`Usage: post.ts ${ALL_PLATFORMS.join("|")}`);
 
   let result: PlatformResult;
   const ctx = readJson<Context>(outPath("context.json"));

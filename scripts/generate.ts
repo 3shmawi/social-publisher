@@ -10,14 +10,16 @@ import {
   buildFacebook,
   buildInstagram,
   buildLinkedIn,
+  buildShortPosts,
   buildYouTube,
   type Context,
+  DEFAULT_PLATFORMS,
   type LanguagePosts,
   type Posts,
   postsMarkdown,
 } from "./lib/content.ts";
 import { templatePosts } from "./lib/template.ts";
-import { env, envBool, notice, outPath, readJson, run, setOutput, summary, warning, writeJson } from "./lib/env.ts";
+import { env, envBool, envList, notice, outPath, readJson, run, setOutput, summary, warning, writeJson } from "./lib/env.ts";
 
 const LANGUAGE_NAMES: Record<string, string> = { en: "English", ar: "Arabic" };
 
@@ -309,6 +311,13 @@ async function main(): Promise<void> {
     instagram: buildInstagram(perLanguage, ctx.app),
     youtube: buildYouTube(perLanguage, ctx.app, ctx.releaseUrl),
   };
+  // Short posts only for the platforms that are on, so the review page
+  // shows what will really go out.
+  const enabled = envList("PLATFORMS", DEFAULT_PLATFORMS);
+  const short = buildShortPosts(perLanguage, ctx.app, { xLinks: envBool("X_LINKS", true) });
+  for (const name of ["threads", "bluesky", "telegram", "x"] as const) {
+    if (enabled.includes(name)) posts[name] = short[name];
+  }
   writeJson(outPath("posts.json"), posts);
   const markdown = postsMarkdown(ctx, posts, dryRun);
   writeFileSync(outPath("posts.md"), `${markdown}\n`);

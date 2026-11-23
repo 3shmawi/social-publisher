@@ -15,7 +15,7 @@ Error messages from the jobs and what to do.
 | `GitHub create ref …: HTTP 403` | The caller job needs `permissions: contents: write` |
 | YouTube video is private | Expected until the audit passes ([YouTube](youtube.md) step 6) |
 | `Instagram: the token lacks a permission` | [Instagram](instagram.md) step 2: a Page token with `instagram_basic` and `instagram_content_publish` |
-| `Instagram couldn't process the video` | Re-encode: MP4, H.264 + AAC, 9:16, 3 s to 15 min |
+| `Instagram couldn't process the video` | Keep `reencode: true` (the default); otherwise check length: 3 s to 15 min |
 | `TIKTOK_REFRESH_TOKEN was rejected` | A run couldn't save the rotated token, or it's older than ~180 days: [TikTok](tiktok.md) step 3 again, then set the secret |
 | `Couldn't save TIKTOK_REFRESH_TOKEN in …` | `SOCIAL_SECRETS_TOKEN` expired or lacks *Secrets: Read and write* on that repo; fix it **before the next run**, then [TikTok](tiktok.md) step 3 |
 | TikTok: `not configured: missing secrets SOCIAL_SECRETS_TOKEN` | [TikTok](tiktok.md) step 4 |

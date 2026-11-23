@@ -7,6 +7,10 @@ export interface AppInfo {
   websiteUrl: string;
   /** Free text about the app and its audience, from the `about` input. */
   about: string;
+  /** Campaign for UTM tags on links (the release tag); empty: no tags. */
+  utmCampaign?: string;
+  /** App Store Connect provider token (App Analytics → Campaigns), for App Store links. */
+  appStoreProviderToken?: string;
 }
 
 export interface Context {
@@ -59,6 +63,11 @@ export interface Posts {
   /** Reel caption (optional in posts.json written before Instagram existed). */
   instagram?: string;
   youtube: YouTubeMeta;
+  /** Short posts (optional in posts.json written before these platforms). */
+  threads?: string;
+  bluesky?: string;
+  telegram?: string;
+  x?: string;
 }
 
 /** Media for this update; paths are relative to the out/ folder. */
@@ -69,13 +78,55 @@ export interface Media {
   videoUrl?: string;
   image: string;
   imageSource: string;
+  /** Describes the image for screen readers (Bluesky, LinkedIn, X, Instagram). */
+  imageAlt?: string;
+  /** Every image, in order (2–10 make a carousel); [image] is the first. */
+  images?: string[];
+  /** Public URLs of [images] ("" where there is none). */
+  imageUrls?: string[];
+  /** Alt text of each image ("" → a default from the app and headline). */
+  imageAlts?: string[];
+  /** YouTube custom thumbnail (a *thumb* release asset or marketing/thumbnails/<tag>.png|jpg). */
+  thumbnail?: string;
+  /** Subtitles for YouTube: *.<lang>.srt|vtt release assets or marketing/captions/<tag>.<lang>.srt|vtt. */
+  captions?: { language: string; file: string }[];
 }
 
+/**
+ * Alt text for image [index]: the release asset's label (or a sidecar
+ * .txt in marketing/images/), else "<app>: <headline>".
+ */
+export function imageAlt(media: Media, index: number, ctx: Pick<Context, "app" | "title">, posts: Pick<Posts, "headline">): string {
+  const given = media.imageAlts?.[index] || (index === 0 ? media.imageAlt : "");
+  const fallback = `${ctx.app.name}: ${posts.headline || ctx.title || "screenshot"}`;
+  return clampChars(given || fallback, 1000);
+}
+
+/** Every platform, in the order jobs and the summary list them. */
+export const ALL_PLATFORMS = [
+  "facebook",
+  "instagram",
+  "linkedin",
+  "youtube",
+  "tiktok",
+  "threads",
+  "bluesky",
+  "telegram",
+  "x",
+] as const;
+
+/** On unless the `platforms` input says otherwise (the newer ones are opt-in). */
+export const DEFAULT_PLATFORMS = "facebook,instagram,linkedin,youtube,tiktok";
+
+export type Platform = (typeof ALL_PLATFORMS)[number];
+
 export interface PlatformResult {
-  platform: "facebook" | "instagram" | "linkedin" | "youtube" | "tiktok";
+  platform: Platform;
   status: "posted" | "skipped" | "failed" | "already-posted";
   detail: string;
   links: { label: string; url: string }[];
+  /** The platform's id for the post(s), for the insights report. */
+  ids?: string[];
 }
 
 // --- What counts as a user-facing change -------------------------------------
@@ -125,24 +176,64 @@ const LINK_LABELS: Record<string, { play: string; ios: string; web: string }> = 
   ar: { play: "جوجل بلاي", ios: "آب ستور", web: "الموقع" },
 };
 
-export function storeLinks(app: AppInfo, language: string): string[] {
+/**
+ * [url] with campaign tags, so store consoles and analytics show which
+ * platform brought the install or visit:
+ * - Google Play: `referrer=utm_source=…&utm_medium=social&utm_campaign=…`
+ *   (Play Console → acquisition reports);
+ * - App Store: `pt` + `ct` (App Analytics campaigns) — only with a provider
+ *   token, otherwise Apple ignores them, so the link stays as it is;
+ * - anything else: `utm_source`, `utm_medium=social`, `utm_campaign`.
+ * Without a campaign (the `utm` input is off) the URL is unchanged.
+ */
+export function tracked(url: string, platform: string, app: AppInfo): string {
+  const campaign = app.utmCampaign;
+  if (!url || !campaign || !platform) return url;
+  let u: URL;
+  try {
+    u = new URL(url);
+  } catch {
+    return url;
+  }
+  if (u.searchParams.has("utm_source") || u.searchParams.has("referrer") || u.searchParams.has("ct")) return url;
+  if (u.hostname === "play.google.com") {
+    u.searchParams.set("referrer", `utm_source=${platform}&utm_medium=social&utm_campaign=${campaign}`);
+  } else if (u.hostname === "apps.apple.com" || u.hostname === "itunes.apple.com") {
+    if (!app.appStoreProviderToken) return url;
+    u.searchParams.set("pt", app.appStoreProviderToken);
+    u.searchParams.set("ct", `${platform}-${campaign}`.slice(0, 40));
+    u.searchParams.set("mt", "8");
+  } else {
+    u.searchParams.set("utm_source", platform);
+    u.searchParams.set("utm_medium", "social");
+    u.searchParams.set("utm_campaign", campaign);
+  }
+  return u.toString();
+}
+
+/** A campaign name from a release tag or update key: `v1.2.0`, `changes-2026-11-23`. */
+export function utmCampaign(key: string): string {
+  return key.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60);
+}
+
+export function storeLinks(app: AppInfo, language: string, platform = ""): string[] {
   const labels = LINK_LABELS[language] ?? LINK_LABELS.en!;
   const lines: string[] = [];
-  if (app.playStoreUrl) lines.push(`${labels.play}: ${app.playStoreUrl}`);
-  if (app.appStoreUrl) lines.push(`${labels.ios}: ${app.appStoreUrl}`);
-  if (app.websiteUrl) lines.push(`${labels.web}: ${app.websiteUrl}`);
+  if (app.playStoreUrl) lines.push(`${labels.play}: ${tracked(app.playStoreUrl, platform, app)}`);
+  if (app.appStoreUrl) lines.push(`${labels.ios}: ${tracked(app.appStoreUrl, platform, app)}`);
+  if (app.websiteUrl) lines.push(`${labels.web}: ${tracked(app.websiteUrl, platform, app)}`);
   return lines;
 }
 
 /** The link to use where a platform takes one link (Facebook's link card). */
-export function primaryLink(app: AppInfo): string {
-  return app.websiteUrl || app.playStoreUrl || app.appStoreUrl;
+export function primaryLink(app: AppInfo, platform = ""): string {
+  return tracked(app.websiteUrl || app.playStoreUrl || app.appStoreUrl, platform, app);
 }
 
 const SEPARATOR = "\n\n— — —\n\n";
 
-function withLinks(body: string, app: AppInfo, language: string): string {
-  const links = storeLinks(app, language);
+function withLinks(body: string, app: AppInfo, language: string, platform: string): string {
+  const links = storeLinks(app, language, platform);
   return links.length ? `${body.trim()}\n\n${links.join("\n")}` : body.trim();
 }
 
@@ -155,13 +246,13 @@ export function buildLinkedIn(posts: LanguagePosts[], app: AppInfo): string {
   return posts
     .map((p) => {
       const tags = p.hashtags.map(normalizeHashtag).filter(Boolean).join(" ");
-      return withLinks(tags ? `${p.linkedin.trim()}\n\n${tags}` : p.linkedin, app, p.language);
+      return withLinks(tags ? `${p.linkedin.trim()}\n\n${tags}` : p.linkedin, app, p.language, "linkedin");
     })
     .join(SEPARATOR);
 }
 
-export function buildFacebook(posts: LanguagePosts[], app: AppInfo): string {
-  return posts.map((p) => withLinks(p.facebook, app, p.language)).join(SEPARATOR);
+export function buildFacebook(posts: LanguagePosts[], app: AppInfo, platform = "facebook"): string {
+  return posts.map((p) => withLinks(p.facebook, app, p.language, platform)).join(SEPARATOR);
 }
 
 /**
@@ -175,7 +266,7 @@ export function buildInstagram(posts: LanguagePosts[], app: AppInfo): string {
     .flatMap((p) => p.hashtags.map(normalizeHashtag))
     .filter((t) => t && !seen.has(t.toLowerCase()) && seen.add(t.toLowerCase()))
     .slice(0, 30);
-  const body = posts.map((p) => withLinks(p.facebook, app, p.language)).join(SEPARATOR);
+  const body = posts.map((p) => withLinks(p.facebook, app, p.language, "instagram")).join(SEPARATOR);
   const tagLine = tags.join(" ");
   const room = 2200 - (tagLine ? [...tagLine].length + 2 : 0);
   return tagLine ? `${clampChars(body, room)}\n\n${tagLine}` : clampChars(body, 2200);
@@ -214,7 +305,7 @@ export function youtubeTags(tags: string[]): string[] {
 
 export function buildYouTube(posts: LanguagePosts[], app: AppInfo, releaseUrl: string): YouTubeMeta {
   const meta = (p: LanguagePosts) => {
-    const links = storeLinks(app, p.language);
+    const links = storeLinks(app, p.language, "youtube");
     if (releaseUrl) links.push(`${p.language === "ar" ? "ملاحظات الإصدار" : "Release notes"}: ${releaseUrl}`);
     const description = [p.youtubeDescription.trim(), links.join("\n")].filter(Boolean).join("\n\n");
     return {
@@ -273,6 +364,10 @@ export function postsMarkdown(ctx: Context, posts: Posts, dryRun: boolean): stri
     fence(posts.facebook),
     "",
     ...(posts.instagram ? [`### Instagram Reel caption (${[...posts.instagram].length} characters)`, fence(posts.instagram), ""] : []),
+    ...(posts.threads ? [`### Threads (${threadsLength(posts.threads)}/${SHORT_LIMITS.threads})`, fence(posts.threads), ""] : []),
+    ...(posts.bluesky ? [`### Bluesky (${graphemeCount(posts.bluesky)}/${SHORT_LIMITS.bluesky})`, fence(posts.bluesky), ""] : []),
+    ...(posts.telegram ? [`### Telegram (${[...posts.telegram].length}/${SHORT_LIMITS.telegram})`, fence(posts.telegram), ""] : []),
+    ...(posts.x ? [`### X (${xLength(posts.x)}/${SHORT_LIMITS.x})`, fence(posts.x), ""] : []),
     "### YouTube",
     `**Title:** ${posts.youtube.title}`,
     "",
@@ -284,4 +379,138 @@ export function postsMarkdown(ctx: Context, posts: Posts, dryRun: boolean): stri
     lines.push("", `**${lang} title:** ${loc.title}`, "", fence(loc.description));
   }
   return lines.join("\n");
+}
+
+// --- Short posts (Threads, Bluesky, Telegram, X) -----------------------------------
+
+const graphemes = new Intl.Segmenter(undefined, { granularity: "grapheme" });
+
+/** User-perceived characters (an emoji with modifiers counts once). */
+export function graphemeCount(text: string): number {
+  return [...graphemes.segment(text)].length;
+}
+
+/**
+ * X counts every URL as 23 characters, and CJK / emoji as 2; Latin and
+ * Arabic letters count 1. Close enough to X's own counter for our texts.
+ */
+export function xLength(text: string): number {
+  let length = 0;
+  for (const part of text.split(/(https?:\/\/\S+)/)) {
+    if (/^https?:\/\//.test(part)) {
+      length += 23;
+      continue;
+    }
+    for (const { segment } of graphemes.segment(part)) {
+      const code = segment.codePointAt(0) ?? 0;
+      length += code > 0x2fff && !(code >= 0x0600 && code <= 0x06ff) ? 2 : 1;
+    }
+  }
+  return length;
+}
+
+/**
+ * [text] cut to fit [max] by [measure]: whole sentences first, then whole
+ * words, then an ellipsis — never in the middle of a word.
+ */
+export function fitText(text: string, max: number, measure: (t: string) => number = graphemeCount): string {
+  const clean = text.trim();
+  if (measure(clean) <= max) return clean;
+  const sentences = clean.match(/[^.!?؟\n]+[.!?؟]*\s*/g) ?? [clean];
+  let out = "";
+  for (const sentence of sentences) {
+    if (measure(out + sentence) > max) break;
+    out += sentence;
+  }
+  if (out.trim()) return out.trim();
+  const words = clean.split(/\s+/);
+  out = "";
+  for (const word of words) {
+    const next = out ? `${out} ${word}` : word;
+    if (measure(`${next}…`) > max) break;
+    out = next;
+  }
+  return `${out}…`;
+}
+
+export interface ShortPostOptions {
+  /** Longest post the platform takes, in its own unit ([measure]). */
+  max: number;
+  measure?: (text: string) => number;
+  /** Add the main link (website, else a store) after the text. */
+  link?: boolean;
+  /** Hashtags to add when they fit. */
+  hashtags?: number;
+  /** utm_source for the link. */
+  platform?: string;
+}
+
+/**
+ * A short post in the main language: the Facebook text, fitted with room
+ * for one link and a few hashtags. Short platforms get one language —
+ * two would leave no room for either.
+ */
+export function buildShortPost(posts: LanguagePosts[], app: AppInfo, options: ShortPostOptions): string {
+  const main = posts[0];
+  if (!main) throw new Error("No posts to build a short post from.");
+  const measure = options.measure ?? graphemeCount;
+  const link = options.link === false ? "" : primaryLink(app, options.platform);
+  const tags = main.hashtags
+    .map(normalizeHashtag)
+    .filter(Boolean)
+    .slice(0, options.hashtags ?? 2)
+    .join(" ");
+  const tail = [link, tags].filter(Boolean).join("\n");
+  const room = options.max - (tail ? measure(`\n\n${tail}`) : 0);
+  if (room < 40) {
+    // A very long link: drop the hashtags, keep the link.
+    const body = fitText(main.facebook, options.max - (link ? measure(`\n\n${link}`) : 0), measure);
+    return link ? `${body}\n\n${link}` : body;
+  }
+  const body = fitText(main.facebook, room, measure);
+  return tail ? `${body}\n\n${tail}` : body;
+}
+
+/** Threads' 500-character limit; emoji counted by their UTF-8 size to be safe. */
+export function threadsLength(text: string): number {
+  let n = 0;
+  for (const ch of text) n += (ch.codePointAt(0) ?? 0) > 0xffff ? Buffer.byteLength(ch) : 1;
+  return n;
+}
+
+export const SHORT_LIMITS = {
+  threads: 500,
+  /** Bluesky: 300 graphemes. */
+  bluesky: 300,
+  /** Telegram: a media caption takes 1,024 characters. */
+  telegram: 1024,
+  x: 280,
+} as const;
+
+export interface ShortPosts {
+  threads: string;
+  bluesky: string;
+  telegram: string;
+  x: string;
+}
+
+/**
+ * The short posts, written once in generate.ts so the review page shows
+ * exactly what each platform will post. [xLinks]: X charges far more for
+ * a post with a link, so it can be left out.
+ */
+export function buildShortPosts(posts: LanguagePosts[], app: AppInfo, options: { xLinks?: boolean } = {}): ShortPosts {
+  return {
+    threads: buildShortPost(posts, app, { max: SHORT_LIMITS.threads, measure: threadsLength, hashtags: 1, platform: "threads" }),
+    bluesky: buildShortPost(posts, app, { max: SHORT_LIMITS.bluesky, hashtags: 2, platform: "bluesky" }),
+    // Telegram channels read well in every language: the Facebook text.
+    telegram: clampChars(buildFacebook(posts, app, "telegram"), SHORT_LIMITS.telegram),
+    x: buildShortPost(posts, app, {
+      max: SHORT_LIMITS.x,
+      measure: xLength,
+      hashtags: 2,
+      link: options.xLinks !== false,
+      platform: "x",
+    }),
+  };
 }

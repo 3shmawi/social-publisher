@@ -1,15 +1,20 @@
 // Step 4 (before approval): check each enabled platform's credentials, so an
 // expired token shows up on the review page instead of after you approve.
+import { DEFAULT_PLATFORMS } from "./lib/content.ts";
 import { env, envBool, envList, error, run, summary, warning } from "./lib/env.ts";
 import { environmentHasReviewers } from "./lib/github.ts";
+import * as bluesky from "./platforms/bluesky.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as instagram from "./platforms/instagram.ts";
 import * as linkedin from "./platforms/linkedin.ts";
+import * as telegram from "./platforms/telegram.ts";
+import * as threads from "./platforms/threads.ts";
 import * as tiktok from "./platforms/tiktok.ts";
+import * as x from "./platforms/x.ts";
 import * as youtube from "./platforms/youtube.ts";
 
 async function main(): Promise<void> {
-  const enabled = envList("PLATFORMS", "facebook,instagram,linkedin,youtube,tiktok");
+  const enabled = envList("PLATFORMS", DEFAULT_PLATFORMS);
   // TikTok has no preflight: checking its token means refreshing it, and
   // TikTok rotates the refresh token on every refresh. The TikTok job does it.
   const modules = {
@@ -18,11 +23,16 @@ async function main(): Promise<void> {
     linkedin,
     youtube,
     tiktok: { configured: tiktok.configured, preflight: async () => "set; checked when posting (a check would rotate the token)" },
+    threads,
+    bluesky,
+    telegram,
+    x,
   } as const;
   const rows: string[] = ["| Platform | Credentials |", "|---|---|"];
 
   for (const name of Object.keys(modules) as (keyof typeof modules)[]) {
     if (!enabled.includes(name)) {
+      if (!DEFAULT_PLATFORMS.includes(name)) continue; // opt-in, not asked for
       rows.push(`| ${name} | ⏭️ turned off (platforms input) |`);
       continue;
     }
