@@ -111,6 +111,22 @@ on:
           is set, else templates), claude-code, api or template (no AI)
         type: string
         default: auto
+      post_at:
+        description: 'Post at this time (HH:MM, 24-hour) after approval, e.g. 18:00; empty = at once. Jobs wait at most max_wait_hours.'
+        type: string
+        default: ''
+      post_timezone:
+        description: IANA time zone for post_at, e.g. Africa/Cairo
+        type: string
+        default: UTC
+      post_at_overrides:
+        description: 'Other times per platform, e.g. linkedin=09:00,instagram=19:30'
+        type: string
+        default: ''
+      max_wait_hours:
+        description: Longest a job waits for post_at (GitHub stops jobs after 6 h); further away = post now
+        type: number
+        default: 5
       utm:
         description: Add campaign tags to links (utm_source=<platform>, utm_campaign=<tag>; Play Store referrer)
         type: boolean
@@ -373,7 +389,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'facebook') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 30 }}
     permissions:
       contents: write   # tag social/posted/<key>/facebook
     env:
@@ -393,6 +409,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts facebook
       - name: Post
         working-directory: publisher
         env:
@@ -413,7 +439,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'instagram') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 30 }}
     permissions:
       contents: write   # tag social/posted/<key>/instagram
     env:
@@ -433,6 +459,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts instagram
       - name: Post the Reel
         working-directory: publisher
         env:
@@ -453,7 +489,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'linkedin') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 15 }}
     permissions:
       contents: write   # tag social/posted/<key>/linkedin-*
     env:
@@ -473,6 +509,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts linkedin
       - name: Post
         working-directory: publisher
         env:
@@ -498,7 +544,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'youtube') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 60 }}
     permissions:
       contents: write   # tag social/posted/<key>/youtube
     env:
@@ -518,6 +564,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts youtube
       - name: Upload
         working-directory: publisher
         env:
@@ -540,7 +596,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'tiktok') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 30 }}
     permissions:
       contents: write   # tag social/posted/<key>/tiktok
     env:
@@ -560,6 +616,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts tiktok
       - name: Upload to the TikTok inbox
         working-directory: publisher
         env:
@@ -611,7 +677,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'threads') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 30 }}
     permissions:
       contents: write   # tag social/posted/<key>/threads
     env:
@@ -631,6 +697,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts threads
       - name: Post
         working-directory: publisher
         env:
@@ -650,7 +726,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'bluesky') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 15 }}
     permissions:
       contents: write   # tag social/posted/<key>/bluesky
     env:
@@ -670,6 +746,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts bluesky
       - name: Post
         working-directory: publisher
         env:
@@ -689,7 +775,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'telegram') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 20 }}
     permissions:
       contents: write   # tag social/posted/<key>/telegram
     env:
@@ -709,6 +795,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts telegram
       - name: Post
         working-directory: publisher
         env:
@@ -728,7 +824,7 @@ jobs:
     if: ${{ needs.approve.result == 'success' && contains(inputs.platforms, 'x') }}
     continue-on-error: true
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: ${{ (inputs.post_at != '' || inputs.post_at_overrides != '') && 360 || 10 }}
     permissions:
       contents: write   # tag social/posted/<key>/x
     env:
@@ -748,6 +844,16 @@ jobs:
         with:
           name: social-posts
           path: out
+      - name: Wait for the posting time
+        if: inputs.post_at != '' || inputs.post_at_overrides != ''
+        working-directory: publisher
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+          POST_AT: ${{ inputs.post_at }}
+          POST_TIMEZONE: ${{ inputs.post_timezone }}
+          POST_AT_OVERRIDES: ${{ inputs.post_at_overrides }}
+          MAX_WAIT_HOURS: ${{ inputs.max_wait_hours }}
+        run: npx tsx scripts/wait.ts x
       - name: Post
         working-directory: publisher
         env:

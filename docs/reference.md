@@ -13,6 +13,10 @@ Inputs, what gets posted when, languages, media, state and security.
 | `voice` | | Style notes ("casual, no emojis on LinkedIn") |
 | `play_store_url`, `app_store_url`, `website_url` | | Added after each post; empty ones are left out |
 | `platforms` | `facebook,instagram,linkedin,youtube,tiktok` | Any subset; also the opt-in `threads`, `bluesky`, `telegram`, `x` |
+| `post_at` | | Post at this time after approval (`HH:MM`, 24-hour); empty = at once |
+| `post_timezone` | `UTC` | IANA zone for `post_at`, e.g. `Africa/Cairo` |
+| `post_at_overrides` | | Other times per platform: `linkedin=09:00,instagram=19:30` |
+| `max_wait_hours` | `5` | Longest a job waits; a time further away posts at once |
 | `utm` | `true` | Campaign tags on links (see [Language and links](#language-and-links)) |
 | `app_store_provider_token` | | Tags App Store links for App Analytics |
 | `reencode` | `true` | Re-encode the video when a platform wouldn't take it (ffmpeg) |
@@ -169,4 +173,13 @@ out). What each platform shares:
 
 A missing permission shows as a note in that row; the rest of the report
 still runs.
+
+## Posting at a set time
+With `post_at: "18:00"` and `post_timezone: Africa/Cairo`, each platform
+job waits after your approval until the next 18:00 Cairo time, then posts;
+`post_at_overrides: linkedin=09:00` gives LinkedIn its own time (the next
+09:00). The waiting happens on the runner: GitHub stops a job after
+6 hours, so a time more than `max_wait_hours` (≤ 5.5) away posts at once
+with a warning — approve within a few hours of the posting time. Waiting
+uses Actions minutes (free on public repos). Dry runs never wait.
 

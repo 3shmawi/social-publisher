@@ -58,6 +58,9 @@ jobs:
       linkedin_as: both            # person, organization or both
       platforms: facebook,instagram,linkedin,youtube,tiktok   # + threads,bluesky,telegram,x (opt-in)
       # x_links: false             # X charges much more for posts with a link (docs/x.md)
+      # post_at: '18:00'           # wait after approval, then post (docs/reference.md → Posting at a set time)
+      # post_timezone: Africa/Cairo
+      # post_at_overrides: linkedin=09:00
       # tiktok_token_repos: me/app1,me/app2   # repos sharing the TikTok account (default: this one)
       hashtags: Flutter,MobileApps  # used by template posts
       youtube_privacy: private     # stays private until the YouTube audit passes anyway
