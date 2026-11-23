@@ -83,3 +83,7 @@ npm run check      # typecheck + tests (unit + the whole pipeline against fake A
 Actions. One script per step: `collect` → `generate` → `media` →
 `preflight` → `post <platform>` → `summary`; `lib/content.ts` holds the text
 rules and is unit-tested.
+
+## License
+
+See [LICENSE.md](LICENSE.md): for flutter-project-kit license holders' apps.
