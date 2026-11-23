@@ -49,6 +49,10 @@ ends with the secrets it gives you; a platform you skip is simply skipped.
 | + | [X](docs/x.md) (opt-in, paid API) | `X_API_KEY`, `X_API_SECRET`, `X_ACCESS_TOKEN`, `X_ACCESS_SECRET` |
 | 6 | **[Add it to an app repo](docs/app-repo.md)**: every secret in one table, the `social` approval environment, the caller workflow, variables, dry run and going live | |
 
+**Weekly credential check:** copy [`examples/social-health.yml`](examples/social-health.yml)
+too — every Monday it checks each platform's token and opens an issue
+before an expired one can break a release ([reference](docs/reference.md#weekly-credential-check)).
+
 Then: [Reference](docs/reference.md) (inputs, behaviour, media, state,
 security) · [Troubleshooting](docs/troubleshooting.md).
 

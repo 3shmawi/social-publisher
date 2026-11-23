@@ -130,3 +130,19 @@ To post an update again: run with `force: true`, or delete the tag
   and the scripts are checked out at that same commit (`job.workflow_sha`).
 - No npm cache (cache poisoning on release events); `npm ci` from the lockfile.
 
+## Weekly credential check
+`examples/social-health.yml` (copy it next to `social.yml`, same platforms
+and secrets) calls `.github/workflows/health.yml` every Monday:
+- runs each enabled platform's read-only check (the same one the review
+  page shows), so an expired Facebook, LinkedIn, YouTube, Threads,
+  Bluesky, Telegram or X credential shows up before a release;
+- while anything fails it keeps **one issue** open (label
+  `social-credentials`) and updates it each week, with each platform's fix;
+  it closes the issue when all checks pass;
+- refreshes the Threads token (60 days) and saves it with
+  `SOCIAL_SECRETS_TOKEN`, in every repo in `threads_token_repos`;
+- TikTok isn't checked: checking would rotate its token (the posting job
+  does that).
+
+Needs `permissions: issues: write` in the caller (the example has it).
+

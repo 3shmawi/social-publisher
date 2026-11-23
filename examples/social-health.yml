@@ -1,0 +1,52 @@
+# Copy to .github/workflows/social-health.yml in an app repo (next to
+# social.yml), with the same platforms and secrets. Every Monday it checks
+# each platform's credentials and keeps an issue open (label
+# social-credentials) while any would fail, so you fix tokens before a
+# release instead of after. It also refreshes the Threads token.
+name: Social credentials check
+
+on:
+  schedule:
+    - cron: '41 6 * * 1'   # Mondays 06:41 UTC
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  check:
+    permissions:
+      contents: read
+      issues: write   # the social-credentials issue
+    # Pin to the same commit as social.yml. Dependabot updates it.
+    uses: 3shmawi/social-publisher/.github/workflows/health.yml@COMMIT_SHA # main
+    with:
+      platforms: facebook,instagram,linkedin,youtube,tiktok   # same as social.yml
+      linkedin_as: both
+      # threads_token_repos: me/app1,me/app2   # repos sharing the Threads account
+    secrets:
+      FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+      FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
+      IG_USER_ID: ${{ secrets.IG_USER_ID }}
+      LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
+      LINKEDIN_AUTHOR_URN: ${{ secrets.LINKEDIN_AUTHOR_URN }}
+      LINKEDIN_ORG_URN: ${{ secrets.LINKEDIN_ORG_URN }}
+      LINKEDIN_CLIENT_ID: ${{ secrets.LINKEDIN_CLIENT_ID }}
+      LINKEDIN_CLIENT_SECRET: ${{ secrets.LINKEDIN_CLIENT_SECRET }}
+      LINKEDIN_REFRESH_TOKEN: ${{ secrets.LINKEDIN_REFRESH_TOKEN }}
+      YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
+      YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
+      YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
+      TIKTOK_CLIENT_KEY: ${{ secrets.TIKTOK_CLIENT_KEY }}
+      TIKTOK_CLIENT_SECRET: ${{ secrets.TIKTOK_CLIENT_SECRET }}
+      TIKTOK_REFRESH_TOKEN: ${{ secrets.TIKTOK_REFRESH_TOKEN }}
+      THREADS_USER_ID: ${{ secrets.THREADS_USER_ID }}
+      THREADS_TOKEN: ${{ secrets.THREADS_TOKEN }}
+      BLUESKY_HANDLE: ${{ secrets.BLUESKY_HANDLE }}
+      BLUESKY_APP_PASSWORD: ${{ secrets.BLUESKY_APP_PASSWORD }}
+      TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+      TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      X_API_KEY: ${{ secrets.X_API_KEY }}
+      X_API_SECRET: ${{ secrets.X_API_SECRET }}
+      X_ACCESS_TOKEN: ${{ secrets.X_ACCESS_TOKEN }}
+      X_ACCESS_SECRET: ${{ secrets.X_ACCESS_SECRET }}
+      SOCIAL_SECRETS_TOKEN: ${{ secrets.SOCIAL_SECRETS_TOKEN }}   # saves the refreshed Threads token

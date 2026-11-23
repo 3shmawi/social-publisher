@@ -164,3 +164,44 @@ export async function downloadAsset(asset: ReleaseAsset, dest: string): Promise<
   }
   await pipeline(Readable.fromWeb(response.body as WebReadableStream), createWriteStream(dest));
 }
+
+// --- Issues (weekly credential check) --------------------------------------------
+
+export interface Issue {
+  number: number;
+  html_url: string;
+  title: string;
+}
+
+/** The open issue with [label], if any (pull requests excluded). */
+export async function findOpenIssue(label: string): Promise<Issue | undefined> {
+  const response = await request(
+    `${api()}/repos/${repo()}/issues?state=open&labels=${encodeURIComponent(label)}&per_page=10`,
+    { headers: headers(), label: "GitHub issues" },
+  );
+  if (!response.ok) throw new Error(`GitHub issues: HTTP ${response.status}. The caller needs "permissions: issues: write".`);
+  const issues = (await response.json()) as (Issue & { pull_request?: unknown })[];
+  return issues.find((i) => !i.pull_request);
+}
+
+async function issueCall(method: string, urlPath: string, body: unknown, what: string): Promise<Issue> {
+  const response = await request(`${api()}/repos/${repo()}${urlPath}`, {
+    method,
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+    label: what,
+  });
+  if (!response.ok) throw new Error(`${what}: HTTP ${response.status}. The caller needs "permissions: issues: write".`);
+  return (await response.json()) as Issue;
+}
+
+export const createIssue = (title: string, body: string, labels: string[]) =>
+  issueCall("POST", "/issues", { title, body, labels }, "GitHub create issue");
+
+export const updateIssue = (number: number, body: string) =>
+  issueCall("PATCH", `/issues/${number}`, { body }, "GitHub update issue");
+
+export async function closeIssue(number: number, comment: string): Promise<void> {
+  await issueCall("POST", `/issues/${number}/comments`, { body: comment }, "GitHub comment");
+  await issueCall("PATCH", `/issues/${number}`, { state: "closed", state_reason: "completed" }, "GitHub close issue");
+}
