@@ -53,6 +53,10 @@ ends with the secrets it gives you; a platform you skip is simply skipped.
 too — every Monday it checks each platform's token and opens an issue
 before an expired one can break a release ([reference](docs/reference.md#weekly-credential-check)).
 
+**Insights:** [`examples/social-insights.yml`](examples/social-insights.yml)
+reports each post's views, likes, comments and shares a week after it went
+out ([reference](docs/reference.md#insights)).
+
 Then: [Reference](docs/reference.md) (inputs, behaviour, media, state,
 security) · [Troubleshooting](docs/troubleshooting.md).
 

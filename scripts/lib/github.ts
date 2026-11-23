@@ -205,3 +205,70 @@ export async function closeIssue(number: number, comment: string): Promise<void>
   await issueCall("POST", `/issues/${number}/comments`, { body: comment }, "GitHub comment");
   await issueCall("PATCH", `/issues/${number}`, { state: "closed", state_reason: "completed" }, "GitHub close issue");
 }
+
+// --- What was posted where (annotated "posted" tags) ------------------------------
+
+/** Stored in the message of each social/posted/<key>/<channel> tag. */
+export interface PostedRecord {
+  key: string;
+  platform: string;
+  channel: string;
+  ids: string[];
+  links: { label: string; url: string }[];
+  postedAt: string;
+}
+
+const RECORD_MARKER = "social-publisher-record:";
+
+/**
+ * Like putRef, but the tag carries [record] (an annotated tag), so the
+ * insights report can find the post later. Falls back to a lightweight tag.
+ */
+export async function putPostedTag(ref: string, sha: string, record: PostedRecord): Promise<void> {
+  const name = ref.replace(/^tags\//, "");
+  const response = await request(`${api()}/repos/${repo()}/git/tags`, {
+    method: "POST",
+    headers: headers({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      tag: name,
+      message: `Posted ${record.key} to ${record.channel}\n\n${RECORD_MARKER}${JSON.stringify(record)}\n`,
+      object: sha,
+      type: "commit",
+    }),
+    label: `GitHub tag object ${name}`,
+  });
+  if (!response.ok) {
+    await putRef(ref, sha);
+    return;
+  }
+  const tag = (await response.json()) as { sha: string };
+  await putRef(ref, tag.sha);
+}
+
+/** Every posted record in the repo (tags made before records existed are skipped). */
+export async function postedRecords(): Promise<PostedRecord[]> {
+  const response = await request(`${api()}/repos/${repo()}/git/matching-refs/tags/social/posted/`, {
+    headers: headers(),
+    label: "GitHub posted tags",
+  });
+  if (!response.ok) throw new Error(`GitHub posted tags: HTTP ${response.status}`);
+  const refs = (await response.json()) as { ref: string; object: { type: string; sha: string } }[];
+  const records: PostedRecord[] = [];
+  for (const ref of refs) {
+    if (ref.object.type !== "tag") continue;
+    const tag = await request(`${api()}/repos/${repo()}/git/tags/${ref.object.sha}`, {
+      headers: headers(),
+      label: `GitHub tag ${ref.ref}`,
+    });
+    if (!tag.ok) continue;
+    const message = ((await tag.json()) as { message?: string }).message ?? "";
+    const at = message.indexOf(RECORD_MARKER);
+    if (at < 0) continue;
+    try {
+      records.push(JSON.parse(message.slice(at + RECORD_MARKER.length).trim()) as PostedRecord);
+    } catch {
+      // not one of ours
+    }
+  }
+  return records;
+}

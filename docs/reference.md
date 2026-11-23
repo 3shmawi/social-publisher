@@ -146,3 +146,27 @@ and secrets) calls `.github/workflows/health.yml` every Monday:
 
 Needs `permissions: issues: write` in the caller (the example has it).
 
+## Insights
+`examples/social-insights.yml` calls `.github/workflows/insights.yml`
+daily. Each post is reported once, 7 days after it went out (`days`), in
+the run's summary: views, likes, comments and shares per platform with a
+link to the post. Run it by hand with `key: v1.2.0` for one update.
+
+It reads the post ids stored in the `social/posted/<key>/<channel>` tags
+(annotated tags; posts made before this feature have no ids and are left
+out). What each platform shares:
+
+| Platform | Numbers | Needs |
+|---|---|---|
+| Facebook | reactions, comments, shares; video views | Page token (`read_insights` for video views) |
+| Instagram | views, likes, comments, shares | `instagram_manage_insights` on the Page token |
+| LinkedIn | likes, comments | a token that may read social actions on the post |
+| YouTube | views, likes, comments | the existing YouTube secrets |
+| Threads | views, likes, replies, reposts | `threads_manage_insights` (in `get-threads-token.ts`) |
+| Bluesky | likes, replies, reposts | nothing (public) |
+| X | impressions, likes, replies, reposts | `x_insights: true` — X bills each read |
+| TikTok, Telegram | — | not shared (TikTok: a draft; Telegram: no view counts for bots) |
+
+A missing permission shows as a note in that row; the rest of the report
+still runs.
+

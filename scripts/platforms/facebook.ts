@@ -72,7 +72,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
         `https://graph-video.facebook.com/${version()}/${encodeURIComponent(page)}/videos`,
         { method: "POST", headers: auth(), body: form, label: "Facebook video upload", retries: 1 },
       );
-      return result("video", [{ label: "Facebook video", url: `https://www.facebook.com/${page}/videos/${res.id}` }]);
+      return result("video", [{ label: "Facebook video", url: `https://www.facebook.com/${page}/videos/${res.id}` }], `video:${res.id}`);
     }
     if (media.image) {
       const form = new FormData();
@@ -85,7 +85,7 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
         label: "Facebook photo",
         retries: 1,
       });
-      return result("photo", [{ label: "Facebook post", url: `https://www.facebook.com/${res.post_id ?? res.id}` }]);
+      return result("photo", [{ label: "Facebook post", url: `https://www.facebook.com/${res.post_id ?? res.id}` }], `post:${res.post_id ?? res.id}`);
     }
     const body = new URLSearchParams({ message: posts.facebook });
     const link = primaryLink(ctx.app, "facebook");
@@ -97,12 +97,12 @@ export async function publish(ctx: Context, posts: Posts, media: Media, outDir: 
       label: "Facebook post",
       retries: 1,
     });
-    return result("text post", [{ label: "Facebook post", url: `https://www.facebook.com/${res.id}` }]);
+    return result("text post", [{ label: "Facebook post", url: `https://www.facebook.com/${res.id}` }], `post:${res.id}`);
   } catch (err) {
     throw explain(err);
   }
 }
 
-function result(kind: string, links: PlatformResult["links"]): PlatformResult {
-  return { platform: "facebook", status: "posted", detail: `Posted a ${kind} to the Page.`, links };
+function result(kind: string, links: PlatformResult["links"], id: string): PlatformResult {
+  return { platform: "facebook", status: "posted", detail: `Posted a ${kind} to the Page.`, links, ids: [id] };
 }

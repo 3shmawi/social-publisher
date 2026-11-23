@@ -5,7 +5,7 @@
 // once it's done, so a re-run never posts the same update there twice.
 import { ALL_PLATFORMS, type Context, type Media, type Platform, type PlatformResult, type Posts } from "./lib/content.ts";
 import { env, envBool, error, outPath, readJson, run, summary, warning, writeJson } from "./lib/env.ts";
-import { postedRef, putRef, refExists } from "./lib/github.ts";
+import { postedRef, putPostedTag, refExists } from "./lib/github.ts";
 import * as bluesky from "./platforms/bluesky.ts";
 import * as facebook from "./platforms/facebook.ts";
 import * as instagram from "./platforms/instagram.ts";
@@ -20,9 +20,21 @@ async function alreadyPosted(key: string, channel: string): Promise<boolean> {
   return !envBool("FORCE") && (await refExists(postedRef(key, channel)));
 }
 
-async function markPosted(key: string, channel: string, sha: string): Promise<void> {
+async function markPosted(
+  key: string,
+  channel: string,
+  sha: string,
+  posted: Pick<PlatformResult, "platform" | "ids" | "links">,
+): Promise<void> {
   try {
-    await putRef(postedRef(key, channel), sha);
+    await putPostedTag(postedRef(key, channel), sha, {
+      key,
+      platform: posted.platform,
+      channel,
+      ids: posted.ids ?? [],
+      links: posted.links,
+      postedAt: new Date().toISOString(),
+    });
   } catch (err) {
     warning(`Posted, but couldn't record it (${(err as Error).message}). A re-run would post again.`);
   }
@@ -41,8 +53,10 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
         continue;
       }
       try {
-        links.push(await linkedin.publish(posts, target, media, out, ctx));
-        await markPosted(ctx.key, channel, ctx.sha);
+        const link = await linkedin.publish(posts, target, media, out, ctx);
+        links.push(link);
+        const urn = /\/feed\/update\/([^/]+)\//.exec(link.url)?.[1];
+        await markPosted(ctx.key, channel, ctx.sha, { platform, links: [link], ids: urn ? [urn] : [] });
       } catch (err) {
         failures.push((err as Error).message);
       }
@@ -75,7 +89,7 @@ async function publish(platform: Platform, ctx: Context, posts: Posts, media: Me
     x: () => x.publish(ctx, posts),
   };
   const result = await publishers[platform]();
-  if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha);
+  if (result.status === "posted") await markPosted(ctx.key, platform, ctx.sha, result);
   return result;
 }
 
